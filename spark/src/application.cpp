@@ -1,8 +1,8 @@
 /**
 
-  Simple audio streaming library for the Spark Core
+  Nagios Monitor for the Spark Core
   Copyright (C) 2014 Nicolas Cortot
-  https://github.com/ncortot/spark-audio-streaming
+  https://github.com/ncortot/spark-nagios-monitor
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -20,9 +20,18 @@
 */
 
 #include "application.h"
+#include "audio_player.h"
+
+AudioPlayer player;
 
 void setup()
 {
+    // Displays status
+    pinMode(D7, OUTPUT);
+    digitalWrite(D7, LOW);
+
+    player.begin();
+    player.beep(250);
 }
 
 void loop()

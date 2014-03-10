@@ -16,6 +16,7 @@ CSRC +=
 
 # C++ source files included in this build.
 CPPSRC += $(TARGET_SRC_PATH)/application.cpp
+CPPSRC += $(TARGET_SRC_PATH)/audio_player.cpp
 CPPSRC += $(CORE_SRC_PATH)/main.cpp
 CPPSRC += $(CORE_SRC_PATH)/newlib_stubs.cpp
 CPPSRC += $(CORE_SRC_PATH)/spark_utilities.cpp
