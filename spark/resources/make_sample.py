@@ -31,6 +31,8 @@ AUDIO_FREQUENCY = 44100
 AUDIO_BITS = 12
 # Bits added to every sample for DAC control
 DAC_CONTROL = 0x7000
+# Buffer size in bytes, make sample length a multiple of this
+BUFFER_SIZE = 128
 
 # Store data here when a conversion is required
 TEMP_FILE = '_temp_data.wav'
@@ -73,16 +75,23 @@ def convert_buffer(data):
     # Convert float32 in [-1, 1] to int in [0, max_value]
     max_value = 1 << AUDIO_BITS
     buf = (data * max_value / 2).astype(numpy.uint16) + int(max_value / 2)
+
     # Add DAC control bits
     buf += DAC_CONTROL
+
+    # Add neutral padding
+    block_len = BUFFER_SIZE / 2
+    if buf.size % block_len:
+        padding_len = block_len - buf.size % block_len
+        padding = numpy.empty(padding_len, dtype=numpy.uint16)
+        padding.fill(int(max_value / 2))
+        buf = numpy.append(buf, padding)
+
     return buf
 
 
 def write_bin(path, data):
     fp = open(path, 'wb')
-
-    # Write bytes MSB first
-    data = data.astype(numpy.dtype('>u2'))
 
     for i in range(0, data.size, 1024):
         fp.write(data[i:i + 1024].tostring())
