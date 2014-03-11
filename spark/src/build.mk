@@ -17,9 +17,12 @@ CSRC +=
 
 # C++ source files included in this build.
 CPPSRC += $(TARGET_SRC_PATH)/application.cpp
-CPPSRC += $(TARGET_SRC_PATH)/flash_player.cpp
 CPPSRC += $(TARGET_SRC_PATH)/audio_player.cpp
+CPPSRC += $(TARGET_SRC_PATH)/flash_player.cpp
+CPPSRC += $(TARGET_SRC_PATH)/ht1632c.cpp
 CPPSRC += $(TARGET_SRC_PATH)/main.cpp
+
+# C++ source files from the core-firmware
 CPPSRC += $(CORE_SRC_PATH)/newlib_stubs.cpp
 CPPSRC += $(CORE_SRC_PATH)/spark_utilities.cpp
 CPPSRC += $(CORE_SRC_PATH)/spark_wiring.cpp
