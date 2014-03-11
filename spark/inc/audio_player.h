@@ -26,16 +26,10 @@
 
 class AudioPlayer
 {
-  private:
-
-    void _setup_dma();
-    void _setup_spi();
-    void _setup_timer();
-
   public:
 
     AudioPlayer();
-    ~AudioPlayer();
+    virtual ~AudioPlayer();
     void begin();
     bool available();
     void play(uint16_t *buffer, size_t size);
@@ -54,6 +48,13 @@ class AudioPlayer
     inline void repeat(uint8_t *buffer, size_t size, uint16_t count) {
         repeat((uint16_t *) buffer, size / 2, count);
     };
+
+  private:
+
+    void _setup_dma();
+    void _setup_spi();
+    void _setup_timer();
+
 };
 
 #endif  // AUDIO_PLAYER_H_

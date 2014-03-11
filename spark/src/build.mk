@@ -9,6 +9,7 @@ CORE_SRC_PATH = $(CORE_FIRMWARE_PATH)/src
 
 # Add include to all objects built for this target
 INCLUDE_DIRS += inc
+INCLUDE_DIRS += resources
 INCLUDE_DIRS += $(CORE_FIRMWARE_PATH)/inc
 
 # C source files included in this build.
@@ -16,6 +17,7 @@ CSRC +=
 
 # C++ source files included in this build.
 CPPSRC += $(TARGET_SRC_PATH)/application.cpp
+CPPSRC += $(TARGET_SRC_PATH)/flash_player.cpp
 CPPSRC += $(TARGET_SRC_PATH)/audio_player.cpp
 CPPSRC += $(CORE_SRC_PATH)/main.cpp
 CPPSRC += $(CORE_SRC_PATH)/newlib_stubs.cpp

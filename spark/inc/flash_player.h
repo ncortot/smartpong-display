@@ -19,28 +19,27 @@
 
 */
 
-#include "application.h"
+#ifndef FLASH_PLAYER_H_
+#define FLASH_PLAYER_H_
+
+#include "spark_wiring.h"
 #include "audio_player.h"
-#include "flash_player.h"
+#include "resources.h"
 
-
-AudioPlayer player;
-FlashPlayer flash_player(player);
-
-
-void setup()
+class FlashPlayer
 {
-    Spark.disconnect();
-    pinMode(D7, OUTPUT);
+  public:
 
-    player.begin();
-    player.beep(250);
-    delay(250);
-}
+    FlashPlayer(AudioPlayer &player);
+    virtual ~FlashPlayer() {};
+    virtual bool available();
+    virtual void play(uint32_t start, uint32_t end);
 
-void loop()
-{
-    if (flash_player.available()) {
-        flash_player.play(RESOURCE_CHIME_START, RESOURCE_WILHELM_END);
-    }
-}
+  private:
+
+    AudioPlayer _player;
+    uint8_t _buffer[RESOURCE_BUFFER_SIZE];
+
+};
+
+#endif  // FLASH_PLAYER_H_

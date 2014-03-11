@@ -115,6 +115,11 @@ program-dfu: $(TARGET).bin
 	@echo Flashing using dfu:
 	$(DFU) -d 1d50:607f -a 0 -s 0x08005000:leave -D $<
 
+# Program the SPI Flash using dfu-util.
+program-flash: $(SRC_PATH)/resources/resources.bin
+	@echo Flashing external flash
+	$(DFU) -d 1d50:607f -a 1 -s 0x00080000:leave -D $<
+
 # Program the core using the cloud. SPARK_CORE_ID and SPARK_ACCESS_TOKEN must
 # have been defined in the environment before invoking 'make program-cloud'
 program-cloud: $(TARGET).bin
@@ -157,6 +162,9 @@ check_external_deps:
 	@echo Building core-communication-lib
 	@$(MAKE) -C $(SRC_PATH)/$(LIB_CORE_COMMUNICATION_PATH)/build --no-print-directory
 	@echo
+	@echo Building resources
+	@$(MAKE) -C $(SRC_PATH)/resources
+	@echo
 
 # Tool invocations
 
@@ -197,7 +205,7 @@ clean:
 	@$(MAKE) -C $(SRC_PATH)/$(LIB_CORE_COMMUNICATION_PATH)/build clean --no-print-directory
 	@echo
 
-.PHONY: all clean check_external_deps elf bin hex size program-dfu program-cloud
+.PHONY: all clean check_external_deps elf bin hex size program-dfu program-cloud program-flash
 .SECONDARY:
 
 # Include auto generated dependancy files
