@@ -1,10 +1,13 @@
 package net.rznc.nagios
 
-import akka.actor.{ ActorSystem, Props }
-
+import akka.actor._
+import com.typesafe.config.ConfigFactory
 
 object Main extends App {
 
-  ActorSystem("nagios-monitor").actorOf(Props[Server])
+  val config = ConfigFactory.load()
+  val system = ActorSystem("nagios-monitor", config.getConfig("nagios-monitor").withFallback(config))
+  system.actorOf(Props[Server], "server")
+  system.actorOf(Props[Status], "status")
 
 }

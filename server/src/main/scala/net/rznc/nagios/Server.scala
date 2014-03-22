@@ -3,49 +3,45 @@ package net.rznc.nagios
 import java.net.InetSocketAddress
 
 import akka.actor._
-import akka.event.Logging
 import akka.io._
 import akka.io.Tcp._
+import Messages._
 
-class Server extends Actor {
+class Server extends Actor with ActorLogging {
 
   import context.system
 
-  val log = Logging(context.system, this)
-  var clients = Set.empty[ActorRef]
+  var socket: Option[ActorRef] = None
 
-  val config = context.system.settings.config
-  val address = config.getString("nagios-monitor.server.address")
-  val port = config.getInt("nagios-monitor.server.port")
-  val secret = config.getString("nagios-monitor.server.secret")
+  override def preStart() = {
+    val config = context.system.settings.config
+    val address = config.getString("server.address")
+    val port = config.getInt("server.port")
+    IO(Tcp) ! Bind(self, new InetSocketAddress(address, port))
+  }
 
-  IO(Tcp) ! Bind(self, new InetSocketAddress(address, port))
-  context.actorOf(Props[NagiosReader], "poller")
+  override def postStop() =
+    socket map (_ ! Unbind)
 
   def receive = {
-
     case Bound(localAddress) =>
-      log.info(s"Listening on $localAddress")
+      log.info(s"Listening on ${localAddress.getHostName}:${localAddress.getPort}")
+      socket = Some(sender())
 
-    case CommandFailed(bind: Bind) =>
-      log.error(s"Bind failed on ${bind.localAddress}")
+    case CommandFailed(Bind(_, localAddress, _, _, _)) =>
+      log.error(s"Bind failed on ${localAddress.getHostName}:${localAddress.getPort}")
       context stop self
 
     case Connected(remote, local) =>
-      val handler = context.actorOf(Props(classOf[ClientHandler], secret))
-      log.info(s"ClientHandler $handler started for $remote")
-      context.watch(handler)
-      clients += handler
-      sender() ! Register(handler)
+      val connection = sender()
+      val name = s"${remote.getHostName}:${remote.getPort}"
+      val handler = context.actorOf(ClientHandler.props(connection), name)
+      log.info(s"Client $name connected")
+      connection ! Register(handler)
 
-    case Terminated(handler) =>
-      log.info(s"ClientHandler $handler terminated")
-      context.unwatch(handler)
-      clients -= handler
-
-    case status: StatusUpdate =>
-      clients foreach (_ ! status)
-
+    case message: StatusMessage =>
+      val write = Write(message.toByteString)
+      context.children foreach (_ ! write)
   }
 
 }

@@ -1,7 +1,6 @@
 package net.rznc.nagios
 
-import akka.actor.Actor
-import akka.event.Logging
+import akka.actor._
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{ Failure, Success }
@@ -11,22 +10,35 @@ import spray.httpx.unmarshalling.Unmarshaller
 import spray.http.MediaTypes._
 import spray.http.HttpRequest
 
-class NagiosReader extends Actor with NagiosParser {
-
-  import context.dispatcher
+object NagiosReader {
 
   case object Poll
 
+  sealed class NagiosException(message: String)
+
+  case object NagiosError extends NagiosException("Error reading Nagios status.")
+  case object NagiosTimeout extends NagiosException("Timeout reading Nagios status.")
+
   val STATUS_URL = "/cgi-bin/status.cgi?host=all&servicestatustypes=28"
 
-  val log = Logging(context.system, this)
+}
+
+class NagiosReader extends Actor with ActorLogging {
+
+  import context.dispatcher
+  import NagiosParser._
+  import NagiosReader._
+
+  var poll: Option[Cancellable] = None
+
   val config = context.system.settings.config
-  val statusUrl = config.getString("nagios-monitor.nagios.url").stripSuffix("/") + STATUS_URL
-  val username = config.getString("nagios-monitor.nagios.username")
-  val password = config.getString("nagios-monitor.nagios.password")
+  val statusUrl = config.getString("nagios.url").stripSuffix("/") + STATUS_URL
+  val username = config.getString("nagios.username")
+  val password = config.getString("nagios.password")
 
   implicit val StatusUnmarshaller = Unmarshaller[NagiosStatus](`text/html`) {
-    case HttpEntity.NonEmpty(contentType, data) => parse(data.toByteArray)
+    case HttpEntity.NonEmpty(contentType, data) =>
+      parse(data.toByteArray)
   }
 
   val pipeline: HttpRequest => Future[NagiosStatus] = (
@@ -35,43 +47,46 @@ class NagiosReader extends Actor with NagiosParser {
     ~> unmarshal[NagiosStatus]
   )
 
-  context.system.scheduler.schedule(1.second, 10.seconds, self, Poll)
+  override def preStart() =
+    poll = Some(context.system.scheduler.schedule(1.second, 10.seconds, self, Poll))
 
-  def compareStatus(prevStatus: NagiosStatus, prevUpdate: StatusUpdate, newStatus: NagiosStatus): StatusUpdate = {
-    val (pc, pw) = (prevStatus.critical, prevStatus.warning)
-    val (nc, nw) = (newStatus.critical, newStatus.warning)
+  override def postStop() =
+    poll.map(_.cancel())
 
-    val criticalIncr = if ((nc -- pc).nonEmpty) 1 else 0
-    val warningIncr = if ((nw -- pc -- pw).nonEmpty) 1 else 0
-    val okIncr = if ((pc ++ pw -- nc -- nw).nonEmpty) 1 else 0
+  def receive = receiveIdle(0)
 
-    StatusUpdate(
-      newStatus.critical.size,
-      prevUpdate.criticalSerial + criticalIncr,
-      newStatus.warning.size,
-      prevUpdate.warningSerial + warningIncr,
-      newStatus.okCount,
-      prevUpdate.okSerial + okIncr
-    )
+  def receiveIdle(lastSerial: Int): Receive = {
+    case Poll =>
+      val serial = lastSerial + 1
+      pipeline(Get(statusUrl)) onComplete {
+        case Success(status: NagiosStatus) => self ! (serial, status)
+        case failure @ Failure(error) => self ! (serial, failure)
+      }
+      context become receivePending(serial)
   }
 
-  def receive = receiveStatus(NagiosStatus(), StatusUpdate())
-
-  def receiveStatus(prevStatus: NagiosStatus, prevUpdate: StatusUpdate): Receive = {
+  def receivePending(pendingSerial: Int): Receive = {
     case Poll =>
-      pipeline {
-        Get(statusUrl)
-      } onComplete {
-        case Success(newStatus: NagiosStatus) =>
-          val newUpdate = compareStatus(prevStatus, prevUpdate, newStatus)
-          log.debug("Status update: {}", newUpdate)
-          context.parent ! newUpdate
-          context become receiveStatus(newStatus, newUpdate)
-        case Success(unexpected) =>
-          log.error("Unexpected response: {}", unexpected)
-        case Failure(error) =>
-          log.warning("Error fetching status: {}", error)
-      }
+      log.warning("Nagios status request {} timed out.", pendingSerial)
+      context.parent ! NagiosTimeout
+      context become receiveIdle(pendingSerial)
+      self ! Poll
+
+    case (serial: Int, status: NagiosStatus) if serial == pendingSerial =>
+      log.debug("Received status for request {}.", serial)
+      context.parent ! status
+      context become receiveIdle(pendingSerial)
+
+    case (serial: Int, Failure(error)) if serial == pendingSerial =>
+      log.warning("Error fetching status request {}: {}", serial, error)
+      context.parent ! NagiosError
+      context become receiveIdle(pendingSerial)
+
+    case (serial: Int, status: NagiosStatus) =>
+      log.warning("Received status for timed-out request {}.", serial)
+
+    case (serial: Int, Failure(error)) =>
+      log.warning("Error fetching timed-out status request {}: {}", serial, error)
   }
 
 }

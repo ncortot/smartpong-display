@@ -1,32 +1,54 @@
 package net.rznc.nagios
 
-import akka.actor.{ Actor, ActorRef }
+import akka.actor._
 import akka.io.Tcp._
-import akka.event.Logging
 
-class ClientHandler(secret: String) extends Actor {
+object ClientHandler {
 
-  val SECRET_MAX = 1024
+  def props(connection: ActorRef): Props = Props(new ClientHandler(connection))
 
-  val log = Logging(context.system, this)
+}
+
+class ClientHandler(connection: ActorRef) extends Actor with ActorLogging {
+
+  context watch connection
 
   def authenticate(token: String): Unit = {
+    val secret = context.system.settings.config.getString("server.secret")
     if (token == secret) {
-      log.info("Client {} authenticated", sender())
-      context become authenticated(sender())
+      log.info("Client authenticated")
+      context become authenticated
     } else {
-      log.warning("Authentication error from {}", sender())
+      log.warning("Authentication failed")
+      context unwatch connection
+      context stop self
     }
   }
 
-  def authenticated(connection: ActorRef): Receive = {
-    case status: StatusUpdate => connection ! Write(status.toByteString)
-    case PeerClosed => context stop self
-  }
+  def authenticated: Receive = ({
+    case write: Write =>
+      log.debug("Sending message")
+      connection ! write
+    case Received(data) =>
+      log.info("Message received: {}", data.utf8String.stripLineEnd)
+  }: Receive) orElse shutdown
 
-  def receive = {
-    case Received(data) => authenticate(data.take(SECRET_MAX).utf8String.stripLineEnd)
-    case PeerClosed => context stop self
+  def receive = ({
+    case _: Write =>
+      log.info("Client is not authenticated")
+    case Received(data) =>
+      authenticate(data.utf8String.stripLineEnd)
+  }: Receive) orElse shutdown
+
+  def shutdown: Receive = {
+    case PeerClosed =>
+      log.info("Connection closed by peer")
+      context unwatch connection
+      context stop self
+    case Terminated =>
+      log.warning("Connection terminated")
+      context unwatch connection
+      context stop self
   }
 
 }
