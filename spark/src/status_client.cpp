@@ -51,7 +51,6 @@ uint8_t StatusClient::update()
     if (WiFi.status() == WIFI_ON) {
         if (_client.connected()) {
             if (_client.available()) {
-                Serial1.println("Reading status...");
                 _state = read();
                 if (_state == STATE_OK) {
                     _last_update = millis();

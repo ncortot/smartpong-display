@@ -175,7 +175,7 @@ class ht1632c {
         void putBitmap(int x, int y, uint16_t *bitmap, uint8_t w, uint8_t h, uint8_t color);
         void setFont(uint8_t userfont);
         uint8_t putChar(int x, int y, char c, uint8_t color, uint8_t bgcolor = BLACK);
-        void putText(int x, int y, char *text, uint8_t color, uint8_t align = ALIGN_LEFT | ALIGN_TOP);
+        void putText(int x, int y, const char *text, uint8_t color, uint8_t align = ALIGN_LEFT | ALIGN_TOP);
 
 };
 

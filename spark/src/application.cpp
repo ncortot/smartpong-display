@@ -23,6 +23,7 @@
 #include "audio_player.h"
 #include "flash_player.h"
 #include "ht1632c.h"
+#include "status_client.h"
 
 
 #define MATRIX_DATA_PIN         D3 // blue
@@ -31,76 +32,34 @@
 #define MATRIX_WR_PIN           D6 // green
 
 #define BRIGHTNESS              0xa
-#define STATUS_X                3
-#define STATUS_Y                1
-#define STATUS_CHAR_X           6
-#define STATUS_SPACE_X          2
 
-#define STATUS_SERVER           10, 0, 0, 1
-#define STATUS_PORT             2222
-#define CLIENT_TOKEN            "6ayg7f1o57fvMV0vh8CSBqqlnTDIebVCQ38cKkUn2WqrrWYZXrvNXewDWXrZBsyS"
+#define STATUS_X                1
+#define STATUS_Y                1
+#define STATUS_WIDTH            62
+#define STATUS_CHAR_WIDTH       6
+#define STATUS_MIN_SPACE        2
+#define STATUS_MAX_CHARS        ((STATUS_WIDTH - 4 * STATUS_MIN_SPACE) / STATUS_CHAR_WIDTH)
+
+#define SERVER_ADDRESS          192, 168, 1, 39
+#define SERVER_PORT             2222
+#define SERVER_SECRET           "Mult1P8$$"
 
 
 AudioPlayer player;
 FlashPlayer flash_player(player);
 ht1632c matrix = ht1632c(MATRIX_DATA_PIN, MATRIX_WR_PIN, MATRIX_CLK_PIN,
                          MATRIX_CS_PIN, GEOM_32x16, 2);
-
-IPAddress server(STATUS_SERVER);
-TCPClient client;
-uint32_t client_buffer[8];
-
-uint32_t critical = 0;
-uint32_t warning = 0;
-uint32_t good = 0;
+StatusClient client;
 
 uint8_t status_color = ORANGE;
-
-
-void str_reverse2(char* buffer){
-	char *i, *j;
-	char c;
-	i=buffer;
-	j=buffer + strlen(buffer)-1;
-	while(i<j){
-		c = *i;
-		*i = *j;
-		*j = c;
-		++i;
-		--j;
-	}
-}
-
-char* utoa2(uint32_t a, char* buffer)
-{
-	char* ptr=buffer;
-	div_t result;
-	if(a==0){
-		ptr[0] = '0';
-		ptr[1] = '\0';
-		return buffer;
-	}
-	while(a){
-		result.quot = a / 10;
-		result.rem = a % 10;
-		*ptr = result.rem;
-		if(result.rem<10){
-			*ptr += '0';
-		}else{
-			*ptr += 'a'-10;
-		}
-		++ptr;
-		a = result.quot;
-	}
-	*ptr = '\0';
-	str_reverse2(buffer);
-	return buffer;
-}
 
 
 void setup()
 {
     pinMode(D7, OUTPUT);
+
+    Serial1.begin(9600);
+    Serial1.println("Starting...");
 
     matrix.begin();
     matrix.setBrightness(BRIGHTNESS);
@@ -109,8 +68,60 @@ void setup()
     matrix.rect(0, 0, 63, 15, ORANGE);
     matrix.sendframe();
 
+    client.begin(IPAddress(SERVER_ADDRESS), SERVER_PORT, SERVER_SECRET);
+
     player.begin();
     flash_player.play(RESOURCE_CHIME_START, RESOURCE_CHIME_END);
+}
+
+
+void display_counts()
+{
+    String critical_text(client.criticalCount());
+    String warning_text(client.criticalCount());
+    String ok_text(client.criticalCount());
+
+    uint8_t length = critical_text.length() + warning_text.length() + ok_text.length();
+    if (length > STATUS_MAX_CHARS) {
+        ok_text = String("");
+        length = critical_text.length() + warning_text.length();
+    }
+    if (length > STATUS_MAX_CHARS) {
+        warning_text = String("");
+        length = critical_text.length();
+    }
+    if (length > STATUS_MAX_CHARS) {
+        critical_text = String("TOO MANY");
+        length = critical_text.length();
+    }
+
+    uint8_t space_x = STATUS_WIDTH - length * STATUS_CHAR_WIDTH;
+
+    uint8_t status_x = STATUS_X + space_x / 4;
+    matrix.putText(status_x, STATUS_Y, critical_text.c_str(), RED);
+
+    if (warning_text.length()) {
+        status_x = STATUS_X + critical_text.length() * STATUS_CHAR_WIDTH + space_x / 2;
+        matrix.putText(status_x, STATUS_Y, warning_text.c_str(), ORANGE);
+    }
+
+    if (ok_text.length()) {
+        status_x = STATUS_X + STATUS_WIDTH - ok_text.length() * STATUS_CHAR_WIDTH - space_x / 4;
+        matrix.putText(status_x, STATUS_Y, ok_text.c_str(), GREEN);
+    }
+}
+
+
+void play_notifications()
+{
+    if (client.notifications() & NOTIFICATION_CRITICAL) {
+        flash_player.play(RESOURCE_SIREN_START, RESOURCE_SIREN_END);
+    } else if (client.notifications() & NOTIFICATION_WARNING) {
+        flash_player.play(RESOURCE_WILHELM_START, RESOURCE_WILHELM_END);
+    } else if (client.notifications() & NOTIFICATION_OK) {
+        flash_player.play(RESOURCE_CHIME_START, RESOURCE_CHIME_END);
+    }
+    client.clearNotifications();
 }
 
 
@@ -119,6 +130,15 @@ void setup()
  */
 void message(char* line1, char *line2, uint8_t color)
 {
+    Serial1.print("Message: ");
+    if (line1)
+        Serial1.print(line1);
+    if (line1 && line2)
+        Serial1.print(" - ");
+    if (line2)
+        Serial1.print(line2);
+    Serial1.println();
+
     matrix.clear();
     matrix.setFont(FONT_4x6);
     if (line1)
@@ -134,6 +154,54 @@ void message(char* line1, char *line2, uint8_t color)
 void message(char* line1, uint8_t color)
 {
     message(line1, NULL, color);
+}
+
+
+void update_status()
+{
+    matrix.clear();
+
+    switch (client.state()) {
+      case STATE_OK:
+        status_color = GREEN;
+        if (client.warningCount() > 0)
+            status_color = ORANGE;
+        if (client.criticalCount() > 0)
+            status_color = RED;
+        display_counts();
+        play_notifications();
+        break;
+      case STATE_NO_NETWORK:
+        status_color = RED;
+        message("No Network", status_color);
+        break;
+      case STATE_CONNECTED:
+        status_color = ORANGE;
+        message("Connected", status_color);
+        break;
+      case STATE_CONNECTION_ERROR:
+        status_color = RED;
+        message("Connection", "Error", status_color);
+        break;
+      case STATE_READ_ERROR:
+        status_color = RED;
+        message("Read Error", status_color);
+        break;
+      case STATE_UPSTREAM_ERROR:
+        status_color = ORANGE;
+        message("Upstream Error", status_color);
+        break;
+      case STATE_TIMEOUT:
+        status_color = ORANGE;
+        message("Server Timeout", status_color);
+        break;
+      default:
+        status_color = RED;
+        message("State Error", status_color);
+        break;
+    }
+
+    matrix.rect(0, 0, 63, 15, status_color);
 }
 
 
@@ -160,77 +228,18 @@ void update_idle()
 }
 
 
-void update_status()
-{
-    if (client.connected() && client.available()) {
-        matrix.clear();
-
-        int read = client.read((uint8_t *) client_buffer, 16);
-
-        if (read == 16) {
-            critical = client_buffer[1];
-            warning = client_buffer[2];
-            good = client_buffer[3];
-        } else {
-            critical = 0;
-            warning = 0;
-            good = 0;
-        }
-
-        status_color = GREEN;
-        if (warning > 0)
-            status_color = ORANGE;
-        if (critical > 0)
-            status_color = RED;
-
-        int status_x = STATUS_X;
-        char status_text[18];
-
-        utoa2(critical, status_text);
-        matrix.putText(status_x, STATUS_Y, status_text, RED);
-        status_x += strlen(status_text) * STATUS_CHAR_X + STATUS_SPACE_X;
-
-        utoa2(warning, status_text);
-        matrix.putText(status_x, STATUS_Y, status_text, ORANGE);
-        status_x += strlen(status_text) * STATUS_CHAR_X + STATUS_SPACE_X;
-
-        utoa2(good, status_text);
-        matrix.putText(status_x, STATUS_Y, status_text, GREEN);
-        status_x += strlen(status_text) * STATUS_CHAR_X + STATUS_SPACE_X;
-
-        matrix.rect(0, 0, 63, 15, status_color);
-    } else if (!client.connected()) {
-        status_color = ORANGE;
-        matrix.putText(STATUS_X, STATUS_Y, "UNKNOWN", ORANGE);
-        matrix.rect(0, 0, 63, 15, status_color);
-    }
-
-}
-
-
 void loop()
 {
     int32_t brightness = analogRead(A7);
     matrix.setBrightness(map(brightness, 0, 0xfff, 0, 0xf));
 
-    if (WiFi.status() == WIFI_ON) {
-        if (client.connected()) {
-            update_status();
-        } else {
-            message("Connecting...", ORANGE);
-            delay(500);
-            client.connect(server, STATUS_PORT);
-            if (client.connected()) {
-                message("Connected", GREEN);
-                client.println(CLIENT_TOKEN);
-                delay(500);
-            } else {
-                message("Connection Error", RED);
-                delay(2000);
-            }
-        }
-    } else {
-        message("No Network", RED);
+    // Update roughly every 1s
+    static uint8_t last_tick = 0;
+    uint8_t current_tick = millis() >> 10;
+    if (last_tick ^ current_tick) {
+        client.update();
+        update_status();
+        last_tick = current_tick;
     }
 
     update_idle();

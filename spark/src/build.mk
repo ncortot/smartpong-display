@@ -21,6 +21,7 @@ CPPSRC += $(TARGET_SRC_PATH)/audio_player.cpp
 CPPSRC += $(TARGET_SRC_PATH)/flash_player.cpp
 CPPSRC += $(TARGET_SRC_PATH)/ht1632c.cpp
 CPPSRC += $(TARGET_SRC_PATH)/main.cpp
+CPPSRC += $(TARGET_SRC_PATH)/status_client.cpp
 
 # C++ source files from the core-firmware
 CPPSRC += $(CORE_SRC_PATH)/newlib_stubs.cpp

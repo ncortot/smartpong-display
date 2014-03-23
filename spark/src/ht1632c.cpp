@@ -609,7 +609,7 @@ uint8_t ht1632c::putChar(int x, int y, char c, uint8_t color, uint8_t bgcolor) {
 
 }
 
-void ht1632c::putText(int x, int y, char *text, uint8_t color, uint8_t align) {
+void ht1632c::putText(int x, int y, const char *text, uint8_t color, uint8_t align) {
 
     int len = strlen(text);
 
