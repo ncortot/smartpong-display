@@ -20,8 +20,8 @@ class ClientHandler(connection: ActorRef) extends Actor with ActorLogging {
       context become authenticated
     } else {
       log.warning("Authentication failed")
-      context unwatch connection
-      context stop self
+      connection ! Close
+      context become shutdown
     }
   }
 
