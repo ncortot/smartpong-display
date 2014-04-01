@@ -25,6 +25,10 @@
 
 StatusClient::StatusClient()
 {
+    // Avoid notifications on startup
+    _status.critical_serial = 1 << 31;
+    _status.warning_serial = 1 << 31;
+    _status.ok_serial = 1 << 31;
 }
 
 
@@ -48,6 +52,8 @@ void StatusClient::begin(const IPAddress &ip, uint16_t port, const char *secret)
 
 uint8_t StatusClient::update()
 {
+    static uint8_t restart_counter = 0;
+
     if (WiFi.status() == WIFI_ON) {
         if (_client.connected()) {
             if (_client.available()) {
@@ -76,6 +82,14 @@ uint8_t StatusClient::update()
         Serial1.println("No Network");
         _state = STATE_NO_NETWORK;
     }
+
+    if (_state == STATE_OK) {
+        restart_counter = 0;
+    } else if (++restart_counter > 60) {
+        Spark_ConnectAbort_WLANReset();
+        restart_counter = 0;
+    }
+
     return _state;
 }
 
@@ -127,7 +141,7 @@ uint8_t StatusClient::read()
         _notifications |= NOTIFICATION_OK;
 
     // Store the new status
-    memcpy(&_state, &_buffer, sizeof(NagiosStatus));
+    memcpy(&_status, &_buffer, sizeof(NagiosStatus));
 
     // Debug logging
     Serial1.print("New status: ");

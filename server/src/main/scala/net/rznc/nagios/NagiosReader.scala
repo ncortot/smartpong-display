@@ -48,7 +48,7 @@ class NagiosReader extends Actor with ActorLogging {
   )
 
   override def preStart() =
-    poll = Some(context.system.scheduler.schedule(1.second, 10.seconds, self, Poll))
+    poll = Some(context.system.scheduler.schedule(1.second, 2.seconds, self, Poll))
 
   override def postStop() =
     poll.map(_.cancel())

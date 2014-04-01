@@ -71,15 +71,15 @@ void setup()
     client.begin(IPAddress(SERVER_ADDRESS), SERVER_PORT, SERVER_SECRET);
 
     player.begin();
-    flash_player.play(RESOURCE_CHIME_START, RESOURCE_CHIME_END);
+    //flash_player.play(RESOURCE_CHIME_START, RESOURCE_CHIME_END);
 }
 
 
 void display_counts()
 {
     String critical_text(client.criticalCount());
-    String warning_text(client.criticalCount());
-    String ok_text(client.criticalCount());
+    String warning_text(client.warningCount());
+    String ok_text(client.okCount());
 
     uint8_t length = critical_text.length() + warning_text.length() + ok_text.length();
     if (length > STATUS_MAX_CHARS) {
@@ -169,7 +169,7 @@ void update_status()
         if (client.criticalCount() > 0)
             status_color = RED;
         display_counts();
-        play_notifications();
+        // play_notifications();
         break;
       case STATE_NO_NETWORK:
         status_color = RED;

@@ -138,8 +138,8 @@ extern "C" void SparkCoreConfig(void)
 	/* Start Spark Wlan and connect to Wifi Router by default */
 	SPARK_WLAN_SETUP = 1;
 
-	/* Do not connect to Spark Cloud by default */
-	SPARK_CLOUD_CONNECT = 0;
+	/* Connect to Spark Cloud by default */
+	SPARK_CLOUD_CONNECT = 1;
 #endif
 }
 
