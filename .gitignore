@@ -44,3 +44,6 @@ libraries/Arduino/
 
 # TropicSSL libraries
 libraries/Tropicssl/
+
+# Private configuration
+server/src/main/resources/application.conf
