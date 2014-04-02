@@ -150,7 +150,7 @@ uint8_t StatusClient::read()
     Serial1.print(warningCount());
     Serial1.print(" ");
     Serial1.print(okCount());
-    Serial1.print(" , notifications: 0x");
+    Serial1.print(", notifications: 0x");
     Serial1.print(notifications(), HEX);
     Serial1.println();
 

@@ -116,10 +116,13 @@ void display_counts()
 void play_notifications()
 {
     if (client.notifications() & NOTIFICATION_CRITICAL) {
+        Serial1.println("Playing notification for CRITICAL");
         flash_player.play(RESOURCE_SIREN_START, RESOURCE_SIREN_END);
     } else if (client.notifications() & NOTIFICATION_WARNING) {
+        Serial1.println("Playing notification for WARNING");
         flash_player.play(RESOURCE_WILHELM_START, RESOURCE_WILHELM_END);
     } else if (client.notifications() & NOTIFICATION_OK) {
+        Serial1.println("Playing notification for OK");
         flash_player.play(RESOURCE_CHIME_START, RESOURCE_CHIME_END);
     }
     client.clearNotifications();

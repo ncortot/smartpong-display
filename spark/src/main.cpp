@@ -174,8 +174,10 @@ int main(void)
 #ifdef SPARK_WIRING_ENABLE
 		static uint8_t SPARK_WIRING_APPLICATION = 0;
 #ifdef SPARK_WLAN_ENABLE
+#if 0
 		if(!SPARK_WLAN_SETUP || SPARK_WLAN_SLEEP || !SPARK_CLOUD_CONNECT || SPARK_CLOUD_CONNECTED || SPARK_WIRING_APPLICATION)
 		{
+#endif
 			if(!SPARK_FLASH_UPDATE && !IWDG_SYSTEM_RESET)
 			{
 #endif
@@ -193,7 +195,9 @@ int main(void)
 				}
 #ifdef SPARK_WLAN_ENABLE
 			}
+#if 0
 		}
+#endif
 #endif
 #endif
 	}
