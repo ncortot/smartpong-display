@@ -71,7 +71,8 @@ void setup()
     client.begin(IPAddress(SERVER_ADDRESS), SERVER_PORT, SERVER_SECRET);
 
     player.begin();
-    //flash_player.play(RESOURCE_CHIME_START, RESOURCE_CHIME_END);
+    flash_player.play(RESOURCE_CHIME_START, RESOURCE_CHIME_END);
+    while (!flash_player.available());
 }
 
 
@@ -244,4 +245,5 @@ void loop()
 
     update_idle();
     matrix.sendframe();
+    while (!flash_player.available());
 }

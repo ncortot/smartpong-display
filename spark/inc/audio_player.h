@@ -32,10 +32,17 @@ class AudioPlayer
     virtual ~AudioPlayer();
     void begin();
     bool available();
-    void play(uint16_t *buffer, size_t size);
-    void play(uint16_t *buffer, size_t size, bool (*callback)(bool));
-    void repeat(uint16_t *buffer, size_t size, uint16_t count);
     void beep(uint16_t millis);
+
+    inline void play(uint16_t *buffer, size_t size) {
+        _play(buffer, size, NULL, 1);
+    };
+    inline void play(uint16_t *buffer, size_t size, bool (*callback)(bool)) {
+        _play(buffer, size, callback, 0);
+    };
+    inline void repeat(uint16_t *buffer, size_t size, uint16_t count) {
+        _play(buffer, size, NULL, count);
+    };
 
     inline void play(uint8_t *buffer, size_t size) {
         play((uint16_t *) buffer, size / 2);
@@ -54,6 +61,7 @@ class AudioPlayer
     void _setup_dma();
     void _setup_spi();
     void _setup_timer();
+    void _play(uint16_t *buffer, size_t size, bool (*callback)(bool), uint16_t loop);
 
 };
 

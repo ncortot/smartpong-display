@@ -29,9 +29,6 @@ uint16_t volatile _loop = 0;
 bool (* volatile _callback)(bool);
 
 
-void _write_dma(uint16_t *buffer, size_t size);
-
-
 AudioPlayer::AudioPlayer()
 {
 }
@@ -140,8 +137,6 @@ void AudioPlayer::_setup_timer()
     // AFIO clock enable
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
 
-    pinMode(A0, AF_OUTPUT_PUSHPULL);
-
     // TIM clock enable
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
 
@@ -188,33 +183,6 @@ bool AudioPlayer::available()
 }
 
 
-void AudioPlayer::play(uint16_t *buffer, size_t size)
-{
-    _player = this;
-    _callback = NULL;
-    _loop = 1;
-    _write_dma(buffer, size);
-}
-
-
-void AudioPlayer::play(uint16_t *buffer, size_t size, bool (*callback)(bool))
-{
-    _player = this;
-    _callback = callback;
-    _loop = 0;
-    _write_dma(buffer, size);
-}
-
-
-void AudioPlayer::repeat(uint16_t *buffer, size_t size, uint16_t count)
-{
-    _player = this;
-    _callback = NULL;
-    _loop = count;
-    _write_dma(buffer, size);
-}
-
-
 void AudioPlayer::beep(uint16_t millis)
 {
     uint16_t loop_count = AUDIO_FREQUENCY / SAMPLE_SIZE * millis / 1000;
@@ -223,8 +191,15 @@ void AudioPlayer::beep(uint16_t millis)
 }
 
 
-void _write_dma(uint16_t *buffer, size_t size)
+void AudioPlayer::_play(uint16_t *buffer, size_t size, bool (*callback)(bool), uint16_t loop)
 {
+    _player = this;
+    _callback = callback;
+    _loop = loop;
+
+    // The pin mode is changed during shutdown
+    pinMode(A0, AF_OUTPUT_PUSHPULL);
+
     DMA_Cmd(DMA1_Channel2, DISABLE);
 
     DMA1_Channel2->CNDTR = (uint32_t) size;
@@ -276,12 +251,17 @@ extern "C" void TIM2_IRQHandler(void)
     if (TIM_GetITStatus(TIM2, TIM_IT_CC1) != RESET) {
         TIM_ClearITPendingBit(TIM2, TIM_IT_CC1);
 
-        // Stop Timer 2 interrupt
+        // Stop Timer 2 interrupt & stop Timer 2
         TIM_ITConfig(TIM2, TIM_IT_CC1, DISABLE);
-
-        // Wait for the output to go HIGH then stop the timer
-        while (!TIM_GetFlagStatus(TIM2, TIM_FLAG_CC1));
         TIM_Cmd(TIM2, DISABLE);
+
+        // Shut down the DAC
+        pinMode(A0, OUTPUT);
+        GPIOA->BRR = GPIO_Pin_0;  // Set A0 LOW
+        SPI1->DR = (uint32_t) 0x6000;  // Set the ~shutdown bit to 0
+        while(!(SPI1->SR & SPI_I2S_FLAG_TXE));  // Wait for end of transmission
+        while(SPI1->SR & SPI_I2S_FLAG_BSY);  // Wait until not busy
+        GPIOA->BSRR = GPIO_Pin_0;  // Set A0 HIGH
 
         // Ready
         _player = NULL;
