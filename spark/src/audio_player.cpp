@@ -22,11 +22,14 @@
 #include "audio_player.h"
 #include "audio_sample.h"
 
+#include "stm32_it.h"
+
 #define AUDIO_FREQUENCY 44100
 
 AudioPlayer * volatile _player = NULL;
 uint16_t volatile _loop = 0;
 bool (* volatile _callback)(bool);
+void TIM2_Audio_Interrupt_Handler(void);
 
 
 AudioPlayer::AudioPlayer()
@@ -44,6 +47,7 @@ void AudioPlayer::begin()
     _setup_dma();
     _setup_spi();
     _setup_timer();
+    Wiring_TIM2_Interrupt_Handler = TIM2_Audio_Interrupt_Handler;
 }
 
 
@@ -246,7 +250,7 @@ extern "C" void DMA1_Channel2_IRQHandler(void)
 }
 
 
-extern "C" void TIM2_IRQHandler(void)
+void TIM2_Audio_Interrupt_Handler(void)
 {
     if (TIM_GetITStatus(TIM2, TIM_IT_CC1) != RESET) {
         TIM_ClearITPendingBit(TIM2, TIM_IT_CC1);

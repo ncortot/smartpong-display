@@ -54,7 +54,7 @@ uint8_t StatusClient::update()
 {
     static uint8_t restart_counter = 0;
 
-    if (WiFi.status() == WIFI_ON) {
+    // if (WiFi.status() == WIFI_ON) {
         if (_client.connected()) {
             if (_client.available()) {
                 _state = read();
@@ -78,10 +78,10 @@ uint8_t StatusClient::update()
                 _state = STATE_CONNECTION_ERROR;
             }
         }
-    } else {
-        Serial1.println("No Network");
-        _state = STATE_NO_NETWORK;
-    }
+    // } else {
+    //     Serial1.println("No Network");
+    //     _state = STATE_NO_NETWORK;
+    // }
 
     if (_state == STATE_OK) {
         restart_counter = 0;
