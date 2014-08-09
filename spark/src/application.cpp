@@ -23,8 +23,6 @@
 #include "audio_player.h"
 #include "flash_player.h"
 #include "ht1632c.h"
-#include "status_client.h"
-
 
 #define MATRIX_DATA_PIN         D3 // blue
 #define MATRIX_CLK_PIN          D4 // white
@@ -40,47 +38,161 @@
 #define STATUS_MIN_SPACE        2
 #define STATUS_MAX_CHARS        ((STATUS_WIDTH - 4 * STATUS_MIN_SPACE) / STATUS_CHAR_WIDTH)
 
-#define SERVER_ADDRESS          192, 168, 1, 39
-#define SERVER_PORT             2222
-#define SERVER_SECRET           "Mult1P8$$"
+#define STATE_STARTUP          0
+#define STATE_COUNTS           1
+#define STATE_MESSAGE          2
+#define STATE_TIMEOUT          3
 
+#define NOTIFICATION_OK         0x1
+#define NOTIFICATION_WARNING    0x2
+#define NOTIFICATION_CRITICAL   0x4
 
 AudioPlayer player;
 FlashPlayer flash_player(player);
 ht1632c matrix = ht1632c(MATRIX_DATA_PIN, MATRIX_WR_PIN, MATRIX_CLK_PIN,
                          MATRIX_CS_PIN, GEOM_32x16, 2);
-StatusClient client;
 
+unsigned long last_update = 0;
 uint8_t status_color = ORANGE;
-
+uint8_t message_color = ORANGE;
 
 void setup()
 {
-    pinMode(D7, OUTPUT);
+    // Serial over USB used for debugging
+    Serial.begin(115200);
+    Serial.println("Starting...");
 
-    Serial1.begin(9600);
-    Serial1.println("Starting...");
+    // Serial line used for control
+    Serial1.begin(115200);
 
+    // Set up the LED matrix
     matrix.begin();
     matrix.setBrightness(BRIGHTNESS);
-    matrix.setFont(FONT_DEFAULT);
-    matrix.clear();
+    message1("Starting...", ORANGE);
     matrix.rect(0, 0, 63, 15, ORANGE);
     matrix.sendframe();
 
-    client.begin(IPAddress(SERVER_ADDRESS), SERVER_PORT, SERVER_SECRET);
-
+    // Audio player initialization
     player.begin();
-    flash_player.play(RESOURCE_CHIME_START, RESOURCE_CHIME_END);
-    while (!flash_player.available());
+    play_notification(NOTIFICATION_OK);
+
+    last_update = millis();
 }
 
 
-void display_counts()
+void loop()
 {
-    String critical_text(client.criticalCount());
-    String warning_text(client.warningCount());
-    String ok_text(client.okCount());
+    // Tune brightness to ambient luminosity
+    int32_t brightness = analogRead(A7);
+    matrix.setBrightness(map(brightness, 0, 0xfff, 0, 0xf));
+
+    // Read serial commands
+    static String input = "";
+    while (Serial1.available()) {
+        char c = (char) Serial1.read();
+        if ((c == '\r' || c == '\n')) {
+            if (input.length() > 0) {
+                command(input);
+            }
+            input = "";
+        } else {
+            input += c;
+        }
+    }
+
+    // Check for command timeout after 1 min
+    if (millis() - last_update > 60000) {
+        Serial.println("Command timeout");
+        matrix.clear();
+        status_color = ORANGE;
+        message1("Timeout...", ORANGE);
+    }
+
+    update_idle();
+    matrix.rect(0, 0, 63, 15, status_color);
+    matrix.sendframe();
+}
+
+
+void command(String &input)
+{
+    static char msg[16];
+
+    if (input.startsWith("UPDATE ")) {
+        // Display new status counts
+        String args = command_args(input);
+        Serial.print("UPDATE: ");
+        Serial.println(args);
+        unsigned int start1 = args.indexOf(' ');
+        unsigned int start2 = args.indexOf(' ', start1 + 1);
+        long critical = args.substring(0, start1).toInt();
+        long warning = args.substring(start1, start2).toInt();
+        long ok = args.substring(start2).toInt();
+        matrix.clear();
+        display_counts(critical, warning, ok);
+        last_update = millis();
+    } else if (input.startsWith("NOTIFY ")) {
+        // Play a notification
+        String args = command_args(input);
+        Serial.print("NOTIFY: ");
+        Serial.println(args);
+        if (args == "OK") {
+          play_notification(NOTIFICATION_OK);
+        } else if (args == "WARNING") {
+          play_notification(NOTIFICATION_WARNING);
+        } else if (args == "CRITICAL") {
+          play_notification(NOTIFICATION_CRITICAL);
+        }
+    } else if (input.startsWith("COLOR ")) {
+        // Change the message color
+        String args = command_args(input);
+        Serial.print("COLOR: ");
+        Serial.println(args);
+        if (args == "GREEN") {
+          message_color = GREEN;
+        } else if (args == "ORANGE") {
+          message_color = ORANGE;
+        } else if (args == "RED") {
+          message_color = RED;
+        }
+    } else {
+        // Display a text message
+        Serial.print("MESSAGE: ");
+        Serial.println(input);
+        matrix.clear();
+        message1(msg, message_color);
+        input.toCharArray(msg, 16);
+        message2(msg, message_color);
+        last_update = millis();
+    }
+}
+
+
+String command_args(String &input)
+{
+    unsigned int start = input.indexOf(' ');
+    return input.substring(start + 1);
+}
+
+
+void display_counts(long critical, long warning, long ok)
+{
+    Serial.print("Counts: ");
+    Serial.print(critical);
+    Serial.print(", ");
+    Serial.print(warning);
+    Serial.print(", ");
+    Serial.println(ok);
+
+    status_color = GREEN;
+    if (warning > 0)
+        status_color = ORANGE;
+    if (critical > 0)
+        status_color = RED;
+
+    String critical_text(critical);
+    String warning_text(warning);
+    String ok_text(ok);
 
     uint8_t length = critical_text.length() + warning_text.length() + ok_text.length();
     if (length > STATUS_MAX_CHARS) {
@@ -95,6 +207,8 @@ void display_counts()
         critical_text = String("TOO MANY");
         length = critical_text.length();
     }
+
+    matrix.setFont(FONT_6x13B);
 
     uint8_t space_x = STATUS_WIDTH - length * STATUS_CHAR_WIDTH;
 
@@ -113,99 +227,60 @@ void display_counts()
 }
 
 
-void play_notifications()
-{
-    if (client.notifications() & NOTIFICATION_CRITICAL) {
-        Serial1.println("Playing notification for CRITICAL");
-        flash_player.play(RESOURCE_SIREN_START, RESOURCE_SIREN_END);
-    } else if (client.notifications() & NOTIFICATION_WARNING) {
-        Serial1.println("Playing notification for WARNING");
-        flash_player.play(RESOURCE_WILHELM_START, RESOURCE_WILHELM_END);
-    } else if (client.notifications() & NOTIFICATION_OK) {
-        Serial1.println("Playing notification for OK");
-        flash_player.play(RESOURCE_CHIME_START, RESOURCE_CHIME_END);
-    }
-    client.clearNotifications();
-}
-
-
 /**
  * Show a message, 15 chars per line, 2 lines max.
  */
 void message(char* line1, char *line2, uint8_t color)
 {
-    Serial1.print("Message: ");
-    if (line1)
-        Serial1.print(line1);
-    if (line1 && line2)
-        Serial1.print(" - ");
-    if (line2)
-        Serial1.print(line2);
-    Serial1.println();
-
-    matrix.clear();
     matrix.setFont(FONT_4x6);
-    if (line1)
+    if (line1) {
+        matrix.clear();
         matrix.putText(2, 2, line1, color);
-    if (line2)
+    }
+    if (line2) {
         matrix.putText(2, 9, line2, color);
-    matrix.setFont(FONT_DEFAULT);
-    matrix.rect(0, 0, 63, 15, color);
-    matrix.sendframe();
+    }
 }
 
 
-void message(char* line1, uint8_t color)
+void message1(char* line1, uint8_t color)
 {
     message(line1, NULL, color);
 }
 
 
-void update_status()
+void message2(char* line2, uint8_t color)
 {
-    matrix.clear();
+    message(NULL, line2, color);
+}
 
-    switch (client.state()) {
-      case STATE_OK:
-        status_color = GREEN;
-        if (client.warningCount() > 0)
-            status_color = ORANGE;
-        if (client.criticalCount() > 0)
-            status_color = RED;
-        display_counts();
-        // play_notifications();
-        break;
-      case STATE_NO_NETWORK:
-        status_color = RED;
-        message("No Network", status_color);
-        break;
-      case STATE_CONNECTED:
-        status_color = ORANGE;
-        message("Connected", status_color);
-        break;
-      case STATE_CONNECTION_ERROR:
-        status_color = RED;
-        message("Connection", "Error", status_color);
-        break;
-      case STATE_READ_ERROR:
-        status_color = RED;
-        message("Read Error", status_color);
-        break;
-      case STATE_UPSTREAM_ERROR:
-        status_color = ORANGE;
-        message("Upstream Error", status_color);
-        break;
-      case STATE_TIMEOUT:
-        status_color = ORANGE;
-        message("Server Timeout", status_color);
-        break;
-      default:
-        status_color = RED;
-        message("State Error", status_color);
-        break;
+
+void play_notification(uint8_t notification)
+{
+    // Block until the player is available
+    while (!flash_player.available()) {
+        delay(100);
     }
 
-    matrix.rect(0, 0, 63, 15, status_color);
+    // Play the notification
+    switch (notification) {
+      case NOTIFICATION_OK:
+        Serial.println("Playing notification for OK");
+        flash_player.play(RESOURCE_CHIME_START, RESOURCE_CHIME_END);
+        break;
+      case NOTIFICATION_WARNING:
+        Serial.println("Playing notification for WARNING");
+        flash_player.play(RESOURCE_WILHELM_START, RESOURCE_WILHELM_END);
+        break;
+      case NOTIFICATION_CRITICAL:
+        Serial.println("Playing notification for CRITICAL");
+        flash_player.play(RESOURCE_SIREN_START, RESOURCE_SIREN_END);
+        break;
+      default:
+        Serial.print("Invalid notification code ");
+        Serial.println(notification);
+        break;
+    }
 }
 
 
@@ -215,38 +290,14 @@ void update_idle()
     static uint8_t direction = 1;
 
     matrix.setPixel(position, 14, BLACK);
-
     position += direction;
-
     if (position < 1) {
         position = 1;
         direction = 1;
     }
-
     if (position > 62) {
         position = 62;
         direction = -1;
     }
-
     matrix.setPixel(position, 14, status_color);
-}
-
-
-void loop()
-{
-    int32_t brightness = analogRead(A7);
-    matrix.setBrightness(map(brightness, 0, 0xfff, 0, 0xf));
-
-    // Update roughly every 1s
-    static uint8_t last_tick = 0;
-    uint8_t current_tick = millis() >> 10;
-    if (last_tick ^ current_tick) {
-        client.update();
-        update_status();
-        last_tick = current_tick;
-    }
-
-    update_idle();
-    matrix.sendframe();
-    while (!flash_player.available());
 }

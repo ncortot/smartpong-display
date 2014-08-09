@@ -44,4 +44,19 @@
 #include "spark_wiring_tcpserver.h"
 #include "spark_wiring_udp.h"
 
+
+void command(String &input);
+String command_args(String &input);
+
+void display_counts(long critical, long warning, long ok);
+
+void message(char* line1, char *line2, uint8_t color);
+void message1(char* line1, uint8_t color);
+void message2(char* line2, uint8_t color);
+
+void play_notification(uint8_t notification);
+
+void update_idle();
+
+
 #endif /* APPLICATION_H_ */
