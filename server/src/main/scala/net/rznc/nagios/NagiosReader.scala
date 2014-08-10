@@ -47,8 +47,10 @@ class NagiosReader extends Actor with ActorLogging {
     ~> unmarshal[NagiosStatus]
   )
 
-  override def preStart() =
-    poll = Some(context.system.scheduler.schedule(1.second, 10.seconds, self, Poll))
+  override def preStart() = {
+    self ! Poll
+    poll = Some(context.system.scheduler.schedule(30.second, 10.seconds, self, Poll))
+  }
 
   override def postStop() =
     poll.map(_.cancel())
@@ -58,6 +60,7 @@ class NagiosReader extends Actor with ActorLogging {
   def receiveIdle(lastSerial: Int): Receive = {
     case Poll =>
       val serial = lastSerial + 1
+      log.debug("Sending status request {}.", serial)
       pipeline(Get(statusUrl)) onComplete {
         case Success(status: NagiosStatus) => self ! (serial, status)
         case failure @ Failure(error) => self ! (serial, failure)
