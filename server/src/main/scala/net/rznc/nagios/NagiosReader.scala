@@ -19,7 +19,7 @@ object NagiosReader {
   case object NagiosError extends NagiosException("Error reading Nagios status.")
   case object NagiosTimeout extends NagiosException("Timeout reading Nagios status.")
 
-  val STATUS_URL = "/cgi-bin/status.cgi?host=all&servicestatustypes=28"
+  val STATUS_FILTER = "&style=detail&servicestatustypes=28"
 
 }
 
@@ -32,7 +32,7 @@ class NagiosReader extends Actor with ActorLogging {
   var poll: Option[Cancellable] = None
 
   val config = context.system.settings.config
-  val statusUrl = config.getString("nagios.url").stripSuffix("/") + STATUS_URL
+  val statusUrl = config.getString("nagios.url").stripSuffix("/") + STATUS_FILTER
   val username = config.getString("nagios.username")
   val password = config.getString("nagios.password")
 
