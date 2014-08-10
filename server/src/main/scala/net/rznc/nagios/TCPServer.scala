@@ -1,13 +1,17 @@
 package net.rznc.nagios
 
-import java.net.InetSocketAddress
-
 import akka.actor._
 import akka.io._
 import akka.io.Tcp._
-import Messages._
+import java.net.InetSocketAddress
 
-class Server extends Actor with ActorLogging {
+object TCPServer {
+
+  def props(address: String, port: Int): Props = Props(new TCPServer(address, port))
+
+}
+
+class TCPServer(address: String, port: Int) extends Actor with ActorLogging {
 
   import context.system
 
@@ -35,13 +39,9 @@ class Server extends Actor with ActorLogging {
     case Connected(remote, local) =>
       val connection = sender()
       val name = s"${remote.getHostName}:${remote.getPort}"
-      val handler = context.actorOf(ClientHandler.props(connection), name)
+      val handler = context.actorOf(TCPHandler.props(connection), name)
       log.info(s"Client $name connected")
       connection ! Register(handler)
-
-    case message: StatusMessage =>
-      val write = Write(message.toByteString)
-      context.children foreach (_ ! write)
   }
 
 }
