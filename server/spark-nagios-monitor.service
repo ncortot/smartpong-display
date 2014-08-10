@@ -1,0 +1,11 @@
+[Unit]
+Description=Skark Nagios Monitor
+After=network.target
+
+[Service]
+Type=simple
+PIDFile=/var/run/spark-nagios-monitor.pid
+ExecStart=/opt/java/ejre/bin/java -Dconfig.file=/root/spark-nagios-monitor.conf -jar /root/spark-nagios-monitor-assembly-2.0.jar
+
+[Install]
+WantedBy=multi-user.target
