@@ -194,6 +194,11 @@ void display_counts(long critical, long warning, long ok)
     String warning_text(warning);
     String ok_text(ok);
 
+    if (critical == 0)
+        critical_text = "-";
+    if (warning == 0)
+        warning_text = "-";
+
     uint8_t length = critical_text.length() + warning_text.length() + ok_text.length();
     if (length > STATUS_MAX_CHARS) {
         ok_text = String("");
@@ -213,11 +218,11 @@ void display_counts(long critical, long warning, long ok)
     uint8_t space_x = STATUS_WIDTH - length * STATUS_CHAR_WIDTH;
 
     uint8_t status_x = STATUS_X + space_x / 4;
-    matrix.putText(status_x, STATUS_Y, critical_text.c_str(), RED);
+    matrix.putText(status_x, STATUS_Y, critical_text.c_str(), critical > 0 ? RED : GREEN);
 
     if (warning_text.length()) {
         status_x = STATUS_X + critical_text.length() * STATUS_CHAR_WIDTH + space_x / 2;
-        matrix.putText(status_x, STATUS_Y, warning_text.c_str(), ORANGE);
+        matrix.putText(status_x, STATUS_Y, warning_text.c_str(), warning > 0 ? ORANGE : GREEN);
     }
 
     if (ok_text.length()) {
