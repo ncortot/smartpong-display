@@ -25,8 +25,7 @@ class Status extends Actor with ActorLogging {
 
   def receive(prevStatus: NagiosStatus): Receive = {
     case newStatus: NagiosStatus =>
-      val newUpdate = updateStatus(newStatus, prevStatus)
-      sendStatus(newUpdate)
+      parseStatus(newStatus, prevStatus)
       context become receive(newStatus)
 
     case _: NagiosException =>
@@ -39,22 +38,18 @@ class Status extends Actor with ActorLogging {
       listeners = listeners.filterNot(_ == listener)
   }
 
-  def sendStatus(message: AnyRef) = listeners.foreach(_ ! message)
-
-  def updateStatus(newStatus: NagiosStatus, prevStatus: NagiosStatus) =
+  def parseStatus(newStatus: NagiosStatus, prevStatus: NagiosStatus): Unit =
     (newStatus, prevStatus) match {
       case (NagiosStatus(nc, nw, no), NagiosStatus(pc, pw, _)) =>
-        //val newCounts = Counts(nc.size, nw.size, no)
-        /*
-        val newSerials = Serials(
-          if ((nc -- pc).nonEmpty) sc + 1 else sc,
-          if ((nw -- pc -- pw).nonEmpty) sw + 1 else sw,
-          if ((pc ++ pw -- nc -- nw).nonEmpty) so + 1 else so
-        )
-        */
-        val newUpdate = Update(nc.size, nw.size, no)
-
-        newUpdate
+        sendStatus(Update(nc.size, nw.size, no))
+        if ((nc -- pc).nonEmpty)
+          sendStatus(Notification(CRITICAL))
+        else if ((nw -- pc -- pw).nonEmpty)
+          sendStatus(Notification(WARNING))
+        else if ((pc ++ pw -- nc -- nw).nonEmpty)
+          sendStatus(Notification(OK))
     }
+
+  def sendStatus(message: AnyRef) = listeners.foreach(_ ! message)
 
 }
