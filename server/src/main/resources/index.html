@@ -26,37 +26,37 @@
 
       <div class="row">
         <div class="col-xs-2">
-          <a class="btn btn-block btn-warning">+</a>
+          <a class="btn btn-block btn-warning" onclick="action('s1+')">+</a>
         </div>
         <div class="col-xs-2">
-          <a class="btn btn-block btn-danger">+</a>
+          <a class="btn btn-block btn-danger" onclick="action('p1+')">+</a>
         </div>
         <div class="col-xs-2 col-xs-offset-4">
-          <a class="btn btn-block btn-danger">+</a>
+          <a class="btn btn-block btn-danger" onclick="action('p2+')">+</a>
         </div>
         <div class="col-xs-2">
-          <a class="btn btn-block btn-warning">+</a>
+          <a class="btn btn-block btn-warning" onclick="action('s2+')">+</a>
         </div>
       </div>
 
       <div class="row">
         <div class="col-xs-4 col-xs-offset-4">
-          <a class="btn btn-block btn-success">Swap</a>
+          <a class="btn btn-block btn-success" onclick="action('swap')">Swap</a>
         </div>
       </div>
 
       <div class="row">
         <div class="col-xs-2">
-          <a class="btn btn-block btn-warning">-</a>
+          <a class="btn btn-block btn-warning" onclick="action('s1-')">-</a>
         </div>
         <div class="col-xs-2">
-          <a class="btn btn-block btn-danger">-</a>
+          <a class="btn btn-block btn-danger" onclick="action('p1-')">-</a>
         </div>
         <div class="col-xs-2 col-xs-offset-4">
-          <a class="btn btn-block btn-danger">-</a>
+          <a class="btn btn-block btn-danger" onclick="action('p2-')">-</a>
         </div>
         <div class="col-xs-2">
-          <a class="btn btn-block btn-warning">-</a>
+          <a class="btn btn-block btn-warning" onclick="action('s2-')">-</a>
         </div>
       </div>
 
@@ -64,13 +64,13 @@
 
       <div class="row">
         <div class="col-xs-4">
-          <a class="btn btn-block btn-success">Service</a>
+          <a class="btn btn-block btn-success" onclick="action('srv1')">Service</a>
         </div>
         <div class="col-xs-4">
-          <a class="btn btn-block btn-danger">Reset</a>
+          <a class="btn btn-block btn-danger" onclick="action('reset')">Reset</a>
         </div>
         <div class="col-xs-4">
-          <a class="btn btn-block btn-success">Service</a>
+          <a class="btn btn-block btn-success" onclick="action('srv2')">Service</a>
         </div>
       </div>
 
@@ -85,5 +85,11 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+
+    <script type= text/javascript>
+      function action(data) {
+        $.post("actions", { action: data });
+      }
+    </script>
   </body>
 </html>

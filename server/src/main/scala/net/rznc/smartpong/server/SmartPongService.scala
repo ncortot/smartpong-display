@@ -1,14 +1,15 @@
 package net.rznc.smartpong.server
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorRef, ActorSystem}
 import akka.event.{Logging, LoggingAdapter}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.PathMatchers.Segment
+import akka.pattern.ask
 import akka.stream.{ActorMaterializer, Materializer}
+import akka.util.Timeout
 import com.typesafe.config.{Config, ConfigFactory}
-
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.duration._
 
 trait Service {
 
@@ -18,14 +19,25 @@ trait Service {
 
   def config: Config
   val logger: LoggingAdapter
+  val actions: ActorRef
+
+  implicit val timeout = Timeout(2.seconds)
 
   val routes = {
     logRequestResult("smartpong") {
       path("") {
-        getFromResource("web/index.html")
+        getFromResource("index.html")
       } ~
-      pathPrefix("actions") {
-        (post & path(Segment)) { action =>
+      path("actions") {
+        get {
+          complete {
+            (actions ? ActionsActor.GetActions).asInstanceOf[Future[Seq[String]]] map { as =>
+              as.mkString("\n")
+            }
+          }
+        } ~
+        (post & formFields('action)) { action =>
+          actions ! ActionsActor.Action(action)
           complete("success")
         }
       }
@@ -42,6 +54,7 @@ object SmartPongService extends App with Service {
 
   override val config = ConfigFactory.load()
   override val logger = Logging(system, getClass)
+  override val actions = system.actorOf(ActionsActor.props())
 
   Http().bindAndHandle(routes, config.getString("http.interface"), config.getInt("http.port"))
 
