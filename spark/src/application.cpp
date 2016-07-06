@@ -52,10 +52,6 @@ FlashPlayer flash_player(player);
 ht1632c matrix = ht1632c(MATRIX_DATA_PIN, MATRIX_WR_PIN, MATRIX_CLK_PIN,
                          MATRIX_CS_PIN, GEOM_32x16, 2);
 
-unsigned long last_update = 0;
-uint8_t status_color = ORANGE;
-uint8_t message_color = ORANGE;
-
 void setup()
 {
     // Serial over USB used for debugging
@@ -74,9 +70,7 @@ void setup()
 
     // Audio player initialization
     player.begin();
-    play_notification(NOTIFICATION_OK);
-
-    last_update = millis();
+    // play_notification(NOTIFICATION_OK);
 }
 
 
@@ -92,143 +86,41 @@ void loop()
         char c = (char) Serial1.read();
         if ((c == '\r' || c == '\n')) {
             if (input.length() > 0) {
-                command(input);
+                display_scores(input);
+                //play_notification(NOTIFICATION_OK);
             }
             input = "";
         } else {
             input += c;
         }
     }
+}
 
-    // Check for command timeout after 1 min
-    if (millis() - last_update > 60000) {
-        Serial.println("Command timeout");
-        matrix.clear();
-        status_color = ORANGE;
-        message1("Timeout...", ORANGE);
+
+void display_scores(String &input)
+{
+    String p1_set = input.substring(0, 1);
+    String p1_game = input.substring(2, 4);
+    String p2_game = input.substring(5, 7);
+    String p2_set = input.substring(8, 9);
+
+    long service = input.substring(10, 11).toInt();
+
+    matrix.clear();
+    matrix.setFont(FONT_8x16B);
+
+    matrix.putText(1, 0, p1_set.c_str(), ORANGE);
+    matrix.putText(13, 0, p1_game.c_str(), RED);
+    matrix.putText(35, 0, p2_game.c_str(), RED);
+    matrix.putText(55, 0, p2_set.c_str(), ORANGE);
+
+    if (service == 1) {
+        matrix.line(1, 15, 28, 15, GREEN);
+    } else if (service == 2) {
+        matrix.line(35, 15, 62, 15, GREEN);
     }
 
-    update_idle();
-    matrix.rect(0, 0, 63, 15, status_color);
     matrix.sendframe();
-}
-
-
-void command(String &input)
-{
-    static char msg[16];
-
-    if (input.startsWith("UPDATE ")) {
-        // Display new status counts
-        String args = command_args(input);
-        Serial.print("UPDATE: ");
-        Serial.println(args);
-        unsigned int start1 = args.indexOf(' ');
-        unsigned int start2 = args.indexOf(' ', start1 + 1);
-        long critical = args.substring(0, start1).toInt();
-        long warning = args.substring(start1, start2).toInt();
-        long ok = args.substring(start2).toInt();
-        matrix.clear();
-        display_counts(critical, warning, ok);
-        last_update = millis();
-    } else if (input.startsWith("NOTIFY ")) {
-        // Play a notification
-        String args = command_args(input);
-        Serial.print("NOTIFY: ");
-        Serial.println(args);
-        if (args == "OK") {
-          play_notification(NOTIFICATION_OK);
-        } else if (args == "WARNING") {
-          play_notification(NOTIFICATION_WARNING);
-        } else if (args == "CRITICAL") {
-          play_notification(NOTIFICATION_CRITICAL);
-        }
-    } else if (input.startsWith("COLOR ")) {
-        // Change the message color
-        String args = command_args(input);
-        Serial.print("COLOR: ");
-        Serial.println(args);
-        if (args == "GREEN") {
-          message_color = GREEN;
-        } else if (args == "ORANGE") {
-          message_color = ORANGE;
-        } else if (args == "RED") {
-          message_color = RED;
-        }
-    } else {
-        // Display a text message
-        Serial.print("MESSAGE: ");
-        Serial.println(input);
-        matrix.clear();
-        message1(msg, message_color);
-        input.toCharArray(msg, 16);
-        message2(msg, message_color);
-        last_update = millis();
-    }
-}
-
-
-String command_args(String &input)
-{
-    unsigned int start = input.indexOf(' ');
-    return input.substring(start + 1);
-}
-
-
-void display_counts(long critical, long warning, long ok)
-{
-    Serial.print("Counts: ");
-    Serial.print(critical);
-    Serial.print(", ");
-    Serial.print(warning);
-    Serial.print(", ");
-    Serial.println(ok);
-
-    status_color = GREEN;
-    if (warning > 0)
-        status_color = ORANGE;
-    if (critical > 0)
-        status_color = RED;
-
-    String critical_text(critical);
-    String warning_text(warning);
-    String ok_text(ok);
-
-    if (critical == 0)
-        critical_text = "-";
-    if (warning == 0)
-        warning_text = "-";
-
-    uint8_t length = critical_text.length() + warning_text.length() + ok_text.length();
-    if (length > STATUS_MAX_CHARS) {
-        ok_text = String("");
-        length = critical_text.length() + warning_text.length();
-    }
-    if (length > STATUS_MAX_CHARS) {
-        warning_text = String("");
-        length = critical_text.length();
-    }
-    if (length > STATUS_MAX_CHARS) {
-        critical_text = String("TOO MANY");
-        length = critical_text.length();
-    }
-
-    matrix.setFont(FONT_6x13B);
-
-    uint8_t space_x = STATUS_WIDTH - length * STATUS_CHAR_WIDTH;
-
-    uint8_t status_x = STATUS_X + space_x / 4;
-    matrix.putText(status_x, STATUS_Y, critical_text.c_str(), critical > 0 ? RED : GREEN);
-
-    if (warning_text.length()) {
-        status_x = STATUS_X + critical_text.length() * STATUS_CHAR_WIDTH + space_x / 2;
-        matrix.putText(status_x, STATUS_Y, warning_text.c_str(), warning > 0 ? ORANGE : GREEN);
-    }
-
-    if (ok_text.length()) {
-        status_x = STATUS_X + STATUS_WIDTH - ok_text.length() * STATUS_CHAR_WIDTH - space_x / 4;
-        matrix.putText(status_x, STATUS_Y, ok_text.c_str(), GREEN);
-    }
 }
 
 
@@ -262,6 +154,8 @@ void message2(char* line2, uint8_t color)
 
 void play_notification(uint8_t notification)
 {
+    return;
+
     // Block until the player is available
     while (!flash_player.available()) {
         delay(100);
@@ -286,23 +180,4 @@ void play_notification(uint8_t notification)
         Serial.println(notification);
         break;
     }
-}
-
-
-void update_idle()
-{
-    static uint8_t position = 1;
-    static uint8_t direction = 1;
-
-    matrix.setPixel(position, 14, BLACK);
-    position += direction;
-    if (position < 1) {
-        position = 1;
-        direction = 1;
-    }
-    if (position > 62) {
-        position = 62;
-        direction = -1;
-    }
-    matrix.setPixel(position, 14, status_color);
 }

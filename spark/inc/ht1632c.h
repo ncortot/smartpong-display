@@ -82,7 +82,7 @@
 #define SCROLL_DOWN         8
 
 
-#define FONT_DEFAULT        8
+#define FONT_DEFAULT        23
 #define FONT_4x6            1
 //#define FONT_5x7          2
 //#define FONT_5x8          3
@@ -90,7 +90,7 @@
 //#define FONT_6x10         5
 //#define FONT_6x12         6
 //#define FONT_6x13         7
-#define FONT_6x13B          8
+//#define FONT_6x13B          8
 //#define FONT_6x13O        9
 //#define FONT_6x9          10
 //#define FONT_7x13         11
@@ -105,7 +105,7 @@
 //#define FONT_9x15         20
 //#define FONT_9x15B        21
 //#define FONT_8x16         22
-//#define FONT_8x16B        23
+#define FONT_8x16B        23
 
 // Custom font, numbers only
 //#define FONT_7x12BN       24
