@@ -16,12 +16,6 @@
 *.out
 *.app
 
-# Debug folder
-Debug/*
-
-# Release folder
-Release/*
-
 # build folder
 *.map
 *.lst
@@ -32,18 +26,3 @@ Release/*
 .settings/*
 .cproject
 .project
-
-# Raisonance RIDE Project
-RIDE/*
-
-# backup folder
-backup/*
-
-# Arduino libraries
-libraries/Arduino/
-
-# TropicSSL libraries
-libraries/Tropicssl/
-
-# Private configuration
-application.conf

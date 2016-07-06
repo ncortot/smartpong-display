@@ -1,17 +1,23 @@
-import AssemblyKeys._
+enablePlugins(JavaAppPackaging)
 
-name := "spark-nagios-monitor"
+name := "smartpong-server"
+organization := "net.rznc.smartpong"
+version := "1.0"
+scalaVersion := "2.11.8"
 
-version := "2.0"
+scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
-resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
+libraryDependencies ++= {
+  val akkaV       = "2.4.3"
+  val scalaTestV  = "2.2.6"
+  Seq(
+    "com.typesafe.akka" %% "akka-actor" % akkaV,
+    "com.typesafe.akka" %% "akka-stream" % akkaV,
+    "com.typesafe.akka" %% "akka-http-experimental" % akkaV,
+    "com.typesafe.akka" %% "akka-http-spray-json-experimental" % akkaV,
+    "com.typesafe.akka" %% "akka-http-testkit" % akkaV,
+    "org.scalatest"     %% "scalatest" % scalaTestV % "test"
+  )
+}
 
-libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-actor" % "2.3.4",
-  "com.typesafe.akka" %% "akka-testkit" % "2.3.4",
-  "org.jsoup" % "jsoup" % "1.7.3",
-  "org.scalatest" % "scalatest_2.10" % "2.0.M5b" % "test",
-  "io.spray" % "spray-client" % "1.3.1"
-)
-
-assemblySettings
+Revolver.settings

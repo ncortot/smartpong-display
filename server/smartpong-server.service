@@ -1,0 +1,11 @@
+[Unit]
+Description=SmartPong Server
+After=network.target
+
+[Service]
+Type=simple
+PIDFile=/var/run/smartpong-server.pid
+ExecStart=/opt/java/ejre/bin/java -Dconfig.file=/root/smartpong-server.conf -jar /root/smartpong-server-assembly-1.0.jar
+
+[Install]
+WantedBy=multi-user.target
