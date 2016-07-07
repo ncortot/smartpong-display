@@ -8,6 +8,8 @@ object ControlActor {
   def props(refreshActor: ActorRef, scoreAgent: Agent[Score]): Props =
     Props(new ControlActor(refreshActor, scoreAgent))
 
+  case object Disconnected
+
 }
 
 class ControlActor(refreshActor: ActorRef, scoreAgent: Agent[Score])
@@ -40,6 +42,8 @@ class ControlActor(refreshActor: ActorRef, scoreAgent: Agent[Score])
       update(sender()) { s => s.copy(initialService = 2) }
     case "reset" =>
       update(sender()) { s => Score() }
+    case ControlActor.Disconnected =>
+      log.debug(s"Client ${sender()} disconnected")
     case message: Any =>
       log.warning(s"Unexpected message: $message")
   }

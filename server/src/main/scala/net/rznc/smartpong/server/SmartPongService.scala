@@ -28,16 +28,15 @@ trait Service {
   val logger: LoggingAdapter
 
   val controlActor: ActorRef
-  val displayActor: ActorRef
+  val refreshActor: ActorRef
   val scoreAgent: Agent[Score]
 
   lazy val controlSink: Sink[Message, _] = {
-    Sink.actorRef(controlActor, 'shutdown)
+    Sink.actorRef(controlActor, ControlActor.Disconnected)
   }
 
   def displaySource(): Source[Message, _] = {
-    val clientActor = system.actorOf(DisplayActor.props(scoreAgent))
-    displayActor ! clientActor
+    val clientActor = system.actorOf(DisplayActor.props(refreshActor, scoreAgent))
     val publisher = ActorPublisher[Score](clientActor)
     Source.fromPublisher(publisher).map { score =>
       TextMessage(score.toString)
@@ -52,13 +51,8 @@ trait Service {
       (path("actions") & post & formFields('action)) { action =>
         complete((controlActor ? action).map(_.toString))
       } ~
-      pathPrefix("ws") {
-        path("control") {
-          handleWebSocketMessages(Flow.fromSinkAndSource(controlSink, displaySource()))
-        } ~
-        path("display") {
-          handleWebSocketMessages(Flow.fromSinkAndSource(Sink.ignore, displaySource()))
-        }
+      path("ws") {
+        handleWebSocketMessages(Flow.fromSinkAndSource(controlSink, displaySource()))
       }
     }
   }
@@ -75,8 +69,8 @@ object SmartPongService extends App with Service {
   override val logger = Logging(system, getClass)
 
   override val scoreAgent = Agent(Score())
-  override val displayActor = system.actorOf(RefreshActor.props())
-  override val controlActor = system.actorOf(ControlActor.props(displayActor, scoreAgent))
+  override val refreshActor = system.actorOf(RefreshActor.props())
+  override val controlActor = system.actorOf(ControlActor.props(refreshActor, scoreAgent))
 
   Http().bindAndHandle(routes, config.getString("http.interface"), config.getInt("http.port"))
 
