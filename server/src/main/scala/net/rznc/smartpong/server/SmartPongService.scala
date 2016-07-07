@@ -1,15 +1,20 @@
 package net.rznc.smartpong.server
 
 import akka.actor.{ActorRef, ActorSystem}
+import akka.agent.Agent
 import akka.event.{Logging, LoggingAdapter}
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.ws._
 import akka.http.scaladsl.server.Directives._
 import akka.pattern.ask
 import akka.stream.{ActorMaterializer, Materializer}
+import akka.stream.actor.ActorPublisher
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.util.Timeout
 import com.typesafe.config.{Config, ConfigFactory}
-import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration._
+
+import scala.concurrent.ExecutionContextExecutor
 
 trait Service {
 
@@ -17,28 +22,42 @@ trait Service {
   implicit def executor: ExecutionContextExecutor
   implicit val materializer: Materializer
 
+  implicit val timeout = Timeout(2.seconds)
+
   def config: Config
   val logger: LoggingAdapter
-  val actions: ActorRef
 
-  implicit val timeout = Timeout(2.seconds)
+  val controlActor: ActorRef
+  val displayActor: ActorRef
+  val scoreAgent: Agent[Score]
+
+  lazy val controlSink: Sink[Message, _] = {
+    Sink.actorRef(controlActor, 'shutdown)
+  }
+
+  def displaySource(): Source[Message, _] = {
+    val clientActor = system.actorOf(DisplayActor.props(scoreAgent))
+    displayActor ! clientActor
+    val publisher = ActorPublisher[Score](clientActor)
+    Source.fromPublisher(publisher).map { score =>
+      TextMessage(score.toString)
+    }
+  }
 
   val routes = {
     logRequestResult("smartpong") {
       path("") {
         getFromResource("index.html")
       } ~
-      path("actions") {
-        get {
-          complete {
-            (actions ? ActionsActor.GetActions).asInstanceOf[Future[Seq[String]]] map { as =>
-              as.mkString("\n")
-            }
-          }
+      (path("actions") & post & formFields('action)) { action =>
+        complete((controlActor ? action).map(_.toString))
+      } ~
+      pathPrefix("ws") {
+        path("control") {
+          handleWebSocketMessages(Flow.fromSinkAndSource(controlSink, displaySource()))
         } ~
-        (post & formFields('action)) { action =>
-          actions ! ActionsActor.Action(action)
-          complete("success")
+        path("display") {
+          handleWebSocketMessages(Flow.fromSinkAndSource(Sink.ignore, displaySource()))
         }
       }
     }
@@ -54,7 +73,10 @@ object SmartPongService extends App with Service {
 
   override val config = ConfigFactory.load()
   override val logger = Logging(system, getClass)
-  override val actions = system.actorOf(ActionsActor.props())
+
+  override val scoreAgent = Agent(Score())
+  override val displayActor = system.actorOf(RefreshActor.props())
+  override val controlActor = system.actorOf(ControlActor.props(displayActor, scoreAgent))
 
   Http().bindAndHandle(routes, config.getString("http.interface"), config.getInt("http.port"))
 
