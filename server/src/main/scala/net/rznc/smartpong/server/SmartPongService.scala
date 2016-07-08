@@ -1,7 +1,6 @@
 package net.rznc.smartpong.server
 
 import akka.actor.{ActorRef, ActorSystem}
-import akka.agent.Agent
 import akka.event.{Logging, LoggingAdapter}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
@@ -27,8 +26,7 @@ trait Service {
   val logger: LoggingAdapter
 
   val controlActor: ActorRef
-  val refreshActor: ActorRef
-  val scoreAgent: Agent[Score]
+  val displayActor: ActorRef
 
   def controlFlow(): Flow[Message, Message, _] = {
     val in = Flow[Message]
@@ -40,7 +38,7 @@ trait Service {
 
     val out = Source.actorRef[Score](bufferSize = 1, OverflowStrategy.dropHead)
       .mapMaterializedValue { ref =>
-        refreshActor ! ref
+        displayActor ! ref
       }
       .map { score =>
         TextMessage(score.toString)
@@ -55,7 +53,7 @@ trait Service {
         getFromResource("index.html")
       } ~
       (path("actions") & post & formFields('action)) { action =>
-        complete((controlActor ? action).map(_.toString))
+        complete((controlActor ? ControlActor.Command(action)).map(_.toString))
       } ~
       path("ws") {
         handleWebSocketMessages(controlFlow())
@@ -74,9 +72,8 @@ object SmartPongService extends App with Service {
   override val config = ConfigFactory.load()
   override val logger = Logging(system, getClass)
 
-  override val scoreAgent = Agent(Score())
-  override val refreshActor = system.actorOf(RefreshActor.props())
-  override val controlActor = system.actorOf(ControlActor.props(refreshActor, scoreAgent))
+  override val displayActor = system.actorOf(DisplayActor.props())
+  override val controlActor = system.actorOf(ControlActor.props(displayActor))
 
   Http().bindAndHandle(routes, config.getString("http.interface"), config.getInt("http.port"))
 

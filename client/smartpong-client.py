@@ -5,7 +5,7 @@ import websocket
 
 
 SOCKET_URL = 'ws://smartpong.rznc.net/display'
-SOCKET_URL = 'ws://localhost:9000/ws/display'
+SOCKET_URL = 'ws://localhost:9000/ws'
 
 
 def on_message(ws, message):
