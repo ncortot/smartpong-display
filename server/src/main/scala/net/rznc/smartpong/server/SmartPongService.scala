@@ -4,16 +4,15 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.agent.Agent
 import akka.event.{Logging, LoggingAdapter}
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.ws._
+import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.server.Directives._
 import akka.pattern.ask
-import akka.stream.{ActorMaterializer, Materializer}
-import akka.stream.actor.ActorPublisher
+import akka.stream.{ActorMaterializer, Materializer, OverflowStrategy}
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.util.Timeout
 import com.typesafe.config.{Config, ConfigFactory}
-import scala.concurrent.duration._
 
+import scala.concurrent.duration._
 import scala.concurrent.ExecutionContextExecutor
 
 trait Service {
@@ -31,16 +30,23 @@ trait Service {
   val refreshActor: ActorRef
   val scoreAgent: Agent[Score]
 
-  lazy val controlSink: Sink[Message, _] = {
-    Sink.actorRef(controlActor, ControlActor.Disconnected)
-  }
+  def controlFlow(): Flow[Message, Message, _] = {
+    val in = Flow[Message]
+      .mapConcat {
+        case TextMessage.Strict(data) => ControlActor.Command(data) :: Nil
+        case _ => Nil
+      }
+      .to(Sink.actorRef[ControlActor.Action](controlActor, ControlActor.Disconnected))
 
-  def displaySource(): Source[Message, _] = {
-    val clientActor = system.actorOf(DisplayActor.props(refreshActor, scoreAgent))
-    val publisher = ActorPublisher[Score](clientActor)
-    Source.fromPublisher(publisher).map { score =>
-      TextMessage(score.toString)
-    }
+    val out = Source.actorRef[Score](bufferSize = 1, OverflowStrategy.dropHead)
+      .mapMaterializedValue { ref =>
+        refreshActor ! ref
+      }
+      .map { score =>
+        TextMessage(score.toString)
+      }
+
+    Flow.fromSinkAndSource(in, out)
   }
 
   val routes = {
@@ -52,7 +58,7 @@ trait Service {
         complete((controlActor ? action).map(_.toString))
       } ~
       path("ws") {
-        handleWebSocketMessages(Flow.fromSinkAndSource(controlSink, displaySource()))
+        handleWebSocketMessages(controlFlow())
       }
     }
   }

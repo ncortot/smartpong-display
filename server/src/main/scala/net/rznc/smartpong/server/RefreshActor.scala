@@ -30,11 +30,11 @@ class RefreshActor extends Actor with ActorLogging with FSM[State, List[ActorRef
       self ! Refresh
       stay()
     case Event(ref: ActorRef, clients) =>
-      ref ! Refresh
+      ref ! Score()
       context watch ref
       stay() using ref :: clients
     case Event(Refresh, clients) =>
-      clients foreach { _ ! Refresh }
+      clients foreach { _ ! Score() }
       stay()
     case Event(Terminated(ref), clients) =>
       context unwatch ref

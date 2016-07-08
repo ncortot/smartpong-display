@@ -8,6 +8,9 @@ object ControlActor {
   def props(refreshActor: ActorRef, scoreAgent: Agent[Score]): Props =
     Props(new ControlActor(refreshActor, scoreAgent))
 
+  sealed trait Action
+  case class Command(data: String) extends Action
+
   case object Disconnected
 
 }
