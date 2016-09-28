@@ -12,7 +12,7 @@ object DisplayActor {
   sealed trait State
   case object DefaultState extends State
 
-  case object Tick
+  case object Update
 
 }
 
@@ -20,12 +20,12 @@ class DisplayActor extends Actor with ActorLogging with FSM[State, (Score, List[
 
   implicit val ec = context.dispatcher
 
-  context.system.scheduler.schedule(5.seconds, 10.seconds, self, Tick)
+  context.system.scheduler.schedule(5.seconds, 30.seconds, self, Update)
 
   startWith(DefaultState, (Score(), Nil))
 
   when(DefaultState) {
-    case Event(Tick, (score, clients)) =>
+    case Event(Update, (score, clients)) =>
       self ! score
       stay()
     case Event(ref: ActorRef, (score, clients)) =>

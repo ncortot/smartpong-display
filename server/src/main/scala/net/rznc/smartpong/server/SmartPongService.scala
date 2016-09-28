@@ -18,11 +18,25 @@ import akka.stream.scaladsl.Source
 import akka.util.Timeout
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
-
+import spray.json._
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContextExecutor
 
-trait Service {
+trait JsonProtocol extends DefaultJsonProtocol {
+
+  implicit object serviceFormat extends RootJsonFormat[Score.Service] {
+    def write(service: Score.Service) =
+      JsNumber(service.side)
+    def read(value: JsValue) = value match {
+      case _ => deserializationError("Not supported")
+    }
+  }
+
+  implicit val scoreFormat = jsonFormat5(Score.apply)
+
+}
+
+trait Service extends JsonProtocol {
 
   implicit val system: ActorSystem
   implicit def executor: ExecutionContextExecutor
@@ -49,7 +63,7 @@ trait Service {
         displayActor ! ref
       }
       .map { score =>
-        TextMessage(score.toString)
+        TextMessage(score.toJson.toString)
       }
 
     Flow.fromSinkAndSource(in, out)

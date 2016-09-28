@@ -4,7 +4,7 @@ object Score {
 
   def apply(): Score = Score(0, 0, 0, 0, Undefined)
 
-  sealed abstract class Service(side: Int)
+  sealed abstract class Service(val side: Int)
   case object Undefined extends Service(0)
   case object Player1 extends Service(1)
   case object Player2 extends Service(2)
