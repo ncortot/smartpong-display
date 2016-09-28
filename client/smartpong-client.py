@@ -1,34 +1,35 @@
 #!/usr/bin/env python2.7
-import thread
-import time
+import json
 import websocket
 
 
-SOCKET_URL = 'ws://smartpong.rznc.net/display'
-SOCKET_URL = 'ws://localhost:9000/ws'
+SOCKET_URL = 'ws://smartpong.rznc.net/ws'
+
+
+def display(out):
+    f = open('/dev/ttyAMA0', 'w')
+    f.write(out + '\n')
+    f.close()
 
 
 def on_message(ws, message):
-    print 'Message:', message
+    data = json.loads(message)
+    p1 = str(data['p1']).rjust(2)[-2:]
+    p2 = str(data['p2']).ljust(2)[-2:]
+    s1 = str(data['s1'])[0]
+    s2 = str(data['s2'])[0]
+    service = str(data['service'])[0]
+    display(' '.join((s1, p1, p2, s2, service)))
 
 
 def on_error(ws, error):
-    print error
+    display('E rr or ! 0')
+    print 'Error:', error
 
 
 def on_close(ws):
-    print "### closed ###"
-
-
-def on_open(ws):
-    def run(*args):
-        for i in range(3):
-            time.sleep(1)
-            ws.send("Hello %d" % i)
-        time.sleep(1)
-        ws.close()
-        print "thread terminating..."
-    thread.start_new_thread(run, ())
+    display('- -- -- - 0')
+    print 'Closed'
 
 
 if __name__ == "__main__":
@@ -37,5 +38,4 @@ if __name__ == "__main__":
                                 on_message=on_message,
                                 on_error=on_error,
                                 on_close=on_close)
-    ws.on_open = on_open
     ws.run_forever()
