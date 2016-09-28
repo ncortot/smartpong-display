@@ -1,15 +1,23 @@
 package net.rznc.smartpong.server
 
-import akka.actor.{ActorRef, ActorSystem}
-import akka.event.{Logging, LoggingAdapter}
+import akka.actor.ActorRef
+import akka.actor.ActorSystem
+import akka.event.Logging
+import akka.event.LoggingAdapter
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.ws.{Message, TextMessage}
+import akka.http.scaladsl.model.ws.Message
+import akka.http.scaladsl.model.ws.TextMessage
 import akka.http.scaladsl.server.Directives._
 import akka.pattern.ask
-import akka.stream.{ActorMaterializer, Materializer, OverflowStrategy}
-import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.ActorMaterializer
+import akka.stream.Materializer
+import akka.stream.OverflowStrategy
+import akka.stream.scaladsl.Flow
+import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.Source
 import akka.util.Timeout
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContextExecutor

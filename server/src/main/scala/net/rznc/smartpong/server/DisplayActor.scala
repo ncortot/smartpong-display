@@ -1,6 +1,6 @@
 package net.rznc.smartpong.server
 
-import akka.actor.{Actor, ActorLogging, ActorRef, FSM, Props, Terminated}
+import akka.actor._
 import scala.concurrent.duration._
 
 import DisplayActor._
