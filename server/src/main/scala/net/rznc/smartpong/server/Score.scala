@@ -2,7 +2,7 @@ package net.rznc.smartpong.server
 
 object Score {
 
-  def apply(): Score = Score(0, 0, 0, 0, Undefined)
+  def apply(): Score = Score(0, 0, 0, 0, Undefined, completed = false)
 
   sealed abstract class Service(val side: Int)
   case object Undefined extends Service(0)
@@ -16,5 +16,6 @@ case class Score(
   p2: Int,
   s1: Int,
   s2: Int,
-  service: Score.Service
+  service: Score.Service,
+  completed: Boolean
 )

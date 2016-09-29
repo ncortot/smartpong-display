@@ -34,7 +34,7 @@ trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
     }
   }
 
-  implicit val scoreFormat = jsonFormat5(Score.apply)
+  implicit val scoreFormat = jsonFormat6(Score.apply)
 
 }
 

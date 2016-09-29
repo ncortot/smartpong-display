@@ -64,7 +64,7 @@
           <span id="p1">0</span>
         </div>
         <div class="col-xs-4 score-swap">
-          <a class="btn btn-block btn-default" onclick="action('swap')">Swap</a>
+          <a class="btn btn-block btn-default" id="swap" onclick="action('swap')">Swap</a>
         </div>
         <div class="col-xs-2 score">
           <span id="p2">0</span>
@@ -126,6 +126,8 @@
       var srv1 = $('#srv1');
       var srv2 = $('#srv2');
 
+      var swap = $('#swap');
+
       function action (data) {
         $.post('actions', {
           action: data
@@ -150,11 +152,18 @@
             srv2.removeClass('btn-success');
             srv2.addClass('btn-default');
           }
+
+          if (score.completed) {
+            swap.addClass('btn-success');
+            swap.removeClass('btn-default');
+          } else {
+            swap.removeClass('btn-success');
+            swap.addClass('btn-default');
+          }
         });
       }
 
       $(function () {
-        console.log('READY');
         action('noop');
       });
     </script>

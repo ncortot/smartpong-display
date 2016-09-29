@@ -38,17 +38,59 @@ class ControlActor(displayActor: ActorRef) extends Actor with ActorLogging with 
       stay()
   }
 
+  private def p1won(s: Score) = s.p1 >= 11 && s.p1 - s.p2 >= 2
+
+  private def p2won(s: Score) = s.p2 >= 11 && s.p2 - s.p1 >= 2
+
+  private def swapService(s: Score): Score = s.service match {
+    case Score.Undefined => s
+    case Score.Player1 => s.copy(service = Score.Player2)
+    case Score.Player2 => s.copy(service = Score.Player1)
+  }
+
+  private def addPoint(s: Score): Score = addWon(addService(s))
+
+  private def addService(s: Score): Score =
+    if ((s.p1 >= 10 && s.p2 >= 10) || ((s.p1 + s.p2) % 2 == 0))
+      swapService(s)
+    else
+      s
+
+  private def addWon(s: Score): Score =
+    if (p1won(s))
+      s.copy(s1 = s.s1 + 1, completed = true)
+    else if (p2won(s))
+      s.copy(s2 = s.s2 + 1, completed = true)
+    else
+      s
+
+  private def subPoint(s: Score): Score = subWon(subService(s))
+
+  private def subService(s: Score): Score =
+    if ((s.p1 >= 10 && s.p2 >= 10) || ((s.p1 + s.p2 % 2) == 0))
+      swapService(s)
+    else
+      s
+
+  private def subWon(s: Score): Score =
+    if (p1won(stateData))
+      s.copy(s1 = math.max(0, s.s1 - 1), completed = false)
+    else if (p2won(stateData))
+      s.copy(s2 = math.max(0, s.s2 - 1), completed = false)
+    else
+      s
+
   private def update(command: Command, s: Score): Score = command match {
     case Command("noop") =>
       s
     case Command("p1+") =>
-      s.copy(p1 = s.p1 + 1)
+      if (s.completed) s else addPoint(s.copy(p1 = s.p1 + 1))
     case Command("p1-") =>
-      s.copy(p1 = math.max(0, s.p1 - 1))
+      if (s.p1 <= 0) s else subPoint(s.copy(p1 = s.p1 - 1))
     case Command("p2+") =>
-      s.copy(p2 = s.p2 + 1)
+      if (s.completed) s else addPoint(s.copy(p2 = s.p2 + 1))
     case Command("p2-") =>
-      s.copy(p2 = math.max(0, s.p2 - 1))
+      if (s.p2 <= 0) s else subPoint(s.copy(p2 = s.p2 - 1))
     case Command("s1+") =>
       s.copy(s1 = s.s1 + 1)
     case Command("s1-") =>
@@ -58,7 +100,7 @@ class ControlActor(displayActor: ActorRef) extends Actor with ActorLogging with 
     case Command("s2-") =>
       s.copy(s2 = math.max(0, s.s2 - 1))
     case Command("swap") =>
-      s.copy(p1 = s.p2, p2 = s.p1, s1 = s.s2, s2 = s.s1)
+      if (!s.completed) s else s.copy(p1 = 0, p2 = 0, s1 = s.s2, s2 = s.s1, completed = false)
     case Command("srv1") =>
       s.copy(service = Score.Player1)
     case Command("srv2") =>
