@@ -5,11 +5,18 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+
     <title>SmartPong</title>
 
     <!-- Bootstrap -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css" integrity="sha384-fLW2N01lMqjakBkx3l/M9EahuwpSfeNvV63J5ezn3uZzapT0u7EYsXMjQV+0En5r" crossorigin="anonymous">
+    <link rel="stylesheet"
+          href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
+          integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7"
+          crossorigin="anonymous">
+    <link rel="stylesheet"
+          href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css"
+          integrity="sha384-fLW2N01lMqjakBkx3l/M9EahuwpSfeNvV63J5ezn3uZzapT0u7EYsXMjQV+0En5r"
+          crossorigin="anonymous">
 
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
     <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
@@ -17,6 +24,16 @@
       <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
       <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
     <![endif]-->
+
+    <style>
+      .score {
+        font-size: 48px;
+        text-align: center;
+      }
+      .score-swap {
+        margin-top: 17px;
+      }
+    </style>
   </head>
   <body>
     <div class="container">
@@ -40,8 +57,20 @@
       </div>
 
       <div class="row">
-        <div class="col-xs-4 col-xs-offset-4">
-          <a class="btn btn-block btn-success" onclick="action('swap')">Swap</a>
+        <div class="col-xs-2 score">
+          <span id="s1">0</span>
+        </div>
+        <div class="col-xs-2 score">
+          <span id="p1">0</span>
+        </div>
+        <div class="col-xs-4 score-swap">
+          <a class="btn btn-block btn-default" onclick="action('swap')">Swap</a>
+        </div>
+        <div class="col-xs-2 score">
+          <span id="p2">0</span>
+        </div>
+        <div class="col-xs-2 score">
+          <span id="s2">0</span>
         </div>
       </div>
 
@@ -64,13 +93,13 @@
 
       <div class="row">
         <div class="col-xs-4">
-          <a class="btn btn-block btn-success" onclick="action('srv1')">Service</a>
+          <a class="btn btn-block btn-default" id="srv1" onclick="action('srv1')">Service</a>
         </div>
         <div class="col-xs-4">
           <a class="btn btn-block btn-danger" onclick="action('reset')">Reset</a>
         </div>
         <div class="col-xs-4">
-          <a class="btn btn-block btn-success" onclick="action('srv2')">Service</a>
+          <a class="btn btn-block btn-default" id="srv2" onclick="action('srv2')">Service</a>
         </div>
       </div>
 
@@ -84,12 +113,50 @@
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"
+            integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS"
+            crossorigin="anonymous"></script>
 
     <script type= text/javascript>
-      function action(data) {
-        $.post("actions", { action: data });
+      var p1 = $('#p1');
+      var p2 = $('#p2');
+      var s1 = $('#s1');
+      var s2 = $('#s2');
+
+      var srv1 = $('#srv1');
+      var srv2 = $('#srv2');
+
+      function action (data) {
+        $.post('actions', {
+          action: data
+        }, function(score) {
+          p1.text(score.p1);
+          p2.text(score.p2);
+          s1.text(score.s1);
+          s2.text(score.s2);
+
+          if (score.service === 1) {
+            srv1.addClass('btn-success');
+            srv1.removeClass('btn-default');
+          } else {
+            srv1.removeClass('btn-success');
+            srv1.addClass('btn-default');
+          }
+
+          if (score.service === 2) {
+            srv2.addClass('btn-success');
+            srv2.removeClass('btn-default');
+          } else {
+            srv2.removeClass('btn-success');
+            srv2.addClass('btn-default');
+          }
+        });
       }
+
+      $(function () {
+        console.log('READY');
+        action('noop');
+      });
     </script>
   </body>
 </html>

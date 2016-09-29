@@ -5,6 +5,7 @@ import akka.actor.ActorSystem
 import akka.event.Logging
 import akka.event.LoggingAdapter
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model.ws.Message
 import akka.http.scaladsl.model.ws.TextMessage
 import akka.http.scaladsl.server.Directives._
@@ -19,10 +20,11 @@ import akka.util.Timeout
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import spray.json._
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContextExecutor
 
-trait JsonProtocol extends DefaultJsonProtocol {
+trait JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
 
   implicit object serviceFormat extends RootJsonFormat[Score.Service] {
     def write(service: Score.Service) =
@@ -36,7 +38,7 @@ trait JsonProtocol extends DefaultJsonProtocol {
 
 }
 
-trait Service extends JsonProtocol {
+trait Service extends JsonSupport {
 
   implicit val system: ActorSystem
   implicit def executor: ExecutionContextExecutor
@@ -50,7 +52,7 @@ trait Service extends JsonProtocol {
   val controlActor: ActorRef
   val displayActor: ActorRef
 
-  def controlFlow(): Flow[Message, Message, _] = {
+  private def controlFlow(): Flow[Message, Message, _] = {
     val in = Flow[Message]
       .mapConcat {
         case TextMessage.Strict(data) => ControlActor.Command(data) :: Nil
@@ -69,13 +71,19 @@ trait Service extends JsonProtocol {
     Flow.fromSinkAndSource(in, out)
   }
 
+  private def handlePostAction(action: String): Future[JsValue] =
+    controlActor ? ControlActor.Command(action) map {
+      case score: Score => score.toJson
+      case _ => JsNull
+    }
+
   val routes = {
     logRequestResult("smartpong") {
       path("") {
         getFromResource("index.html")
       } ~
       (path("actions") & post & formFields('action)) { action =>
-        complete((controlActor ? ControlActor.Command(action)).map(_.toString))
+        complete(handlePostAction(action))
       } ~
       path("ws") {
         handleWebSocketMessages(controlFlow())

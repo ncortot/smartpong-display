@@ -39,6 +39,8 @@ class ControlActor(displayActor: ActorRef) extends Actor with ActorLogging with 
   }
 
   private def update(command: Command, s: Score): Score = command match {
+    case Command("noop") =>
+      s
     case Command("p1+") =>
       s.copy(p1 = s.p1 + 1)
     case Command("p1-") =>
