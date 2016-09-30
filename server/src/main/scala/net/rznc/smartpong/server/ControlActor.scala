@@ -77,11 +77,11 @@ class ControlActor(displayActor: ActorRef) extends Actor with ActorLogging with 
   private def update(command: Command, s: Score): Score = command match {
     case Command("p1+") if s.initial != Score.Undefined && !s.completed =>
       addPoint(s.copy(p1 = s.p1 + 1))
-    case Command("p1-") if s.p1 > 0 =>
+    case Command("p1-") if s.p1 > 0 && !p2won(s) =>
       subPoint(s.copy(p1 = s.p1 - 1))
     case Command("p2+") if s.initial != Score.Undefined && !s.completed =>
       addPoint(s.copy(p2 = s.p2 + 1))
-    case Command("p2-") if s.p2 > 0 =>
+    case Command("p2-") if s.p2 > 0 && !p1won(s) =>
       subPoint(s.copy(p2 = s.p2 - 1))
     case Command("reset") =>
       Score()
